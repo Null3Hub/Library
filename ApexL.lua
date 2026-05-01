@@ -1,17 +1,6 @@
 --[[
 	Apex UI Library
-	Converted from ApexDashboard_v9_3_6_main_label_spacing_fix.lua into a reusable library.
-	Visual style was preserved: dark Apex window, compact top bar, macOS dots,
-	collapsible sidebar, breadcrumbs, gradient strokes, rounded section cards and
-	Luna-style controls.
-
-	Example:
-	local ui = loadstring(game:HttpGet("URL/Library.lua"))()
-	local window = ui.new({ Title = "My Dashboard" })
-	local page = window:AddPage("Home", "rbxassetid://123456")
-	local section = page:AddSection("General")
-	section:AddLabel("Welcome to your dashboard!")
-	section:AddToggle("Enable feature", false, function(v) print(v) end)
+	Converted from ApexDashboard into a reusable library.
 --]]
 
 local Library = {}
