@@ -1,0 +1,1663 @@
+--[[
+	Apex UI Library
+	Converted from ApexDashboard_v9_3_6_main_label_spacing_fix.lua into a reusable library.
+	Visual style was preserved: dark Apex window, compact top bar, macOS dots,
+	collapsible sidebar, breadcrumbs, gradient strokes, rounded section cards and
+	Luna-style controls.
+
+	Example:
+	local ui = loadstring(game:HttpGet("URL/Library.lua"))()
+	local window = ui.new({ Title = "My Dashboard" })
+	local page = window:AddPage("Home", "rbxassetid://123456")
+	local section = page:AddSection("General")
+	section:AddLabel("Welcome to your dashboard!")
+	section:AddToggle("Enable feature", false, function(v) print(v) end)
+--]]
+
+local Library = {}
+Library.__index = Library
+Library.Version = "ApexLibrary_v1.0.0"
+
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
+
+local THEME = {
+	BG_OUTER    = Color3.fromRGB(24, 24, 25),
+	BG_WINDOW   = Color3.fromRGB(40, 40, 43),
+	BG_SIDEBAR  = Color3.fromRGB(24, 24, 25),
+	BG_CARD     = Color3.fromRGB(40, 40, 43),
+	BG_HOVER    = Color3.fromRGB(48, 48, 52),
+	BG_ACTIVE   = Color3.fromRGB(46, 42, 54),
+	BG_SEARCH   = Color3.fromRGB(31, 31, 34),
+	BG_TABSEL   = Color3.fromRGB(46, 42, 54),
+	BG_BUTTON   = Color3.fromRGB(35, 35, 38),
+	BG_TOPBAR   = Color3.fromRGB(20, 20, 21),
+
+	TEXT_PRIMARY   = Color3.fromRGB(245, 245, 247),
+	TEXT_SECONDARY = Color3.fromRGB(180, 180, 186),
+	TEXT_MUTED     = Color3.fromRGB(126, 126, 127),
+	TEXT_ACCENT    = Color3.fromRGB(255, 255, 255),
+
+	ACCENT_BLUE  = Color3.fromRGB(89, 29, 169),
+	ACCENT_GREEN = Color3.fromRGB(52, 211, 153),
+	BORDER       = Color3.fromRGB(64, 64, 68),
+	BORDER_LIGHT = Color3.fromRGB(126, 126, 127),
+
+	STROKE_PURPLE = Color3.fromRGB(89, 29, 169),
+	STROKE_MID    = Color3.fromRGB(126, 126, 127),
+	STROKE_LIGHT  = Color3.fromRGB(245, 245, 247),
+
+	DOT_RED    = Color3.fromRGB(255, 95, 86),
+	DOT_YELLOW = Color3.fromRGB(255, 189, 46),
+	DOT_GREEN  = Color3.fromRGB(39, 201, 63),
+	DOT_GRAY   = Color3.fromRGB(80, 80, 84),
+}
+
+local FONT_BOLD = Enum.Font.GothamBold
+local FONT_SEMI = Enum.Font.GothamSemibold
+local FONT_REG  = Enum.Font.Gotham
+local FONT_MONO = Enum.Font.Code
+
+local CORNER_SM = 6
+local CORNER_MD = 10
+local CORNER_XL = 10
+
+local SIDEBAR_EXPANDED  = 188
+local SIDEBAR_COLLAPSED = 62
+local NEW_TOPBAR_H      = 32
+local TOPBAR_H          = 52
+local LOGO_ASSET        = "rbxassetid://76038193154224"
+
+local WINDOW_POS  = UDim2.new(0.06, 0, 0.07, 0)
+local WINDOW_SIZE = UDim2.new(0.66, 0, 0.86, 0)
+
+local TW_FAST     = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TW_MED      = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TW_SIDEBAR  = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local TW_DROPDOWN = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+local function Create(className, props)
+	local inst = Instance.new(className)
+	for k, v in pairs(props or {}) do
+		inst[k] = v
+	end
+	return inst
+end
+
+local function Corner(radius, parent)
+	local c = Create("UICorner", { CornerRadius = UDim.new(0, radius) })
+	if parent then c.Parent = parent end
+	return c
+end
+
+local function Stroke(parent, color, thickness)
+	local s = Create("UIStroke", {
+		Color = color or THEME.BORDER,
+		Thickness = thickness or 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+	})
+	if parent then s.Parent = parent end
+	return s
+end
+
+local function Padding(parent, t, r, b, l)
+	local p = Create("UIPadding", {
+		PaddingTop    = UDim.new(0, t or 0),
+		PaddingRight  = UDim.new(0, r or 0),
+		PaddingBottom = UDim.new(0, b or 0),
+		PaddingLeft   = UDim.new(0, l or 0),
+	})
+	if parent then p.Parent = parent end
+	return p
+end
+
+local function ListLayout(parent, fillDir, hAlign, vAlign, spacing)
+	local l = Create("UIListLayout", {
+		FillDirection       = fillDir or Enum.FillDirection.Vertical,
+		HorizontalAlignment = hAlign or Enum.HorizontalAlignment.Left,
+		VerticalAlignment   = vAlign or Enum.VerticalAlignment.Top,
+		SortOrder           = Enum.SortOrder.LayoutOrder,
+		Padding             = UDim.new(0, spacing or 0),
+	})
+	if parent then l.Parent = parent end
+	return l
+end
+
+local function GradientStrokeFrame(parent, name, radius, thickness, zIndex)
+	local frame = Create("Frame", {
+		Name = name or "GradientStrokeFrame",
+		Size = UDim2.new(1, -2, 1, -2),
+		Position = UDim2.new(0, 1, 0, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		Active = false,
+		Selectable = false,
+		ZIndex = zIndex or 100,
+		Parent = parent,
+	})
+	Corner(radius, frame)
+
+	local stroke = Create("UIStroke", {
+		Color = Color3.fromRGB(255, 255, 255),
+		Transparency = 0.02,
+		Thickness = thickness or 2,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+		Parent = frame,
+	})
+
+	local gradient = Create("UIGradient", {
+		Name = "AnimatedStrokeGradient",
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, THEME.STROKE_PURPLE),
+			ColorSequenceKeypoint.new(0.22, Color3.fromRGB(126, 76, 214)),
+			ColorSequenceKeypoint.new(0.48, THEME.STROKE_LIGHT),
+			ColorSequenceKeypoint.new(0.72, THEME.STROKE_MID),
+			ColorSequenceKeypoint.new(1.00, THEME.STROKE_PURPLE),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.00, 1.00),
+			NumberSequenceKeypoint.new(0.14, 0.28),
+			NumberSequenceKeypoint.new(0.50, 0.02),
+			NumberSequenceKeypoint.new(0.86, 0.28),
+			NumberSequenceKeypoint.new(1.00, 1.00),
+		}),
+		Parent = stroke,
+	})
+	TweenService:Create(gradient, TweenInfo.new(6, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, false), { Rotation = 450 }):Play()
+	return frame, stroke, gradient
+end
+
+local function SafeCallback(callback, ...)
+	if type(callback) ~= "function" then return end
+	local ok, err = pcall(callback, ...)
+	if not ok then
+		warn("[ApexLibrary] Callback error:", err)
+	end
+end
+
+local function GetKeyCode(value, fallback)
+	fallback = fallback or Enum.KeyCode.LeftAlt
+	if typeof(value) == "EnumItem" then return value end
+	if type(value) == "string" and Enum.KeyCode[value] then return Enum.KeyCode[value] end
+	return fallback
+end
+
+local Section = {}
+Section.__index = Section
+
+local Page = {}
+Page.__index = Page
+
+local Window = {}
+Window.__index = Window
+
+function Section:_UpdateSize()
+	local h = self.ElementsLayout.AbsoluteContentSize.Y
+	self.ElementsList.Size = UDim2.new(1, 0, 0, h)
+	self.ElementsClip.Size = UDim2.new(1, -36, 0, h)
+	self.Container.Size = UDim2.new(1, 0, 0, 52 + h + 18)
+	if self.Page and self.Page.UpdateCanvas then
+		self.Page:UpdateCanvas()
+	end
+end
+
+function Section:_BaseElement(name, height)
+	local element = Create("Frame", {
+		Name = name,
+		Size = UDim2.new(1, 0, 0, height or 38),
+		BackgroundColor3 = THEME.BG_BUTTON,
+		BackgroundTransparency = 0.12,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 10,
+		Parent = self.ElementsList,
+	})
+	Corner(9, element)
+	local elStroke = Stroke(element, THEME.BORDER, 1)
+	element.MouseEnter:Connect(function()
+		TweenService:Create(elStroke, TW_FAST, { Color = Color3.fromRGB(87, 84, 104) }):Play()
+		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.04 }):Play()
+	end)
+	element.MouseLeave:Connect(function()
+		TweenService:Create(elStroke, TW_FAST, { Color = THEME.BORDER }):Play()
+		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.12 }):Play()
+	end)
+	return element, elStroke
+end
+
+function Section:_Title(parent, title, desc)
+	Create("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -118, 0, desc and 15 or 20),
+		Position = UDim2.new(0, 12, 0, desc and 6 or 9),
+		BackgroundTransparency = 1,
+		Text = tostring(title or "Element"),
+		Font = FONT_SEMI,
+		TextSize = 12,
+		TextColor3 = Color3.fromRGB(235, 231, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = parent.ZIndex + 1,
+		Parent = parent,
+	})
+	if desc then
+		Create("TextLabel", {
+			Name = "Desc",
+			Size = UDim2.new(1, -118, 0, 13),
+			Position = UDim2.new(0, 12, 0, 22),
+			BackgroundTransparency = 1,
+			Text = tostring(desc),
+			Font = FONT_REG,
+			TextSize = 10,
+			TextColor3 = Color3.fromRGB(145, 139, 170),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = parent.ZIndex + 1,
+			Parent = parent,
+		})
+	end
+end
+
+function Section:AddLabel(text, desc)
+	local element = self:_BaseElement("ApexLabel", desc and 44 or 38)
+	self:_Title(element, text or "Label", desc)
+
+	local badge = Create("Frame", {
+		Name = "InfoBadge",
+		Size = UDim2.new(0, 64, 0, 22),
+		Position = UDim2.new(1, -76, 0.5, -11),
+		BackgroundColor3 = Color3.fromRGB(44, 38, 68),
+		BorderSizePixel = 0,
+		ZIndex = 11,
+		Parent = element,
+	})
+	Corner(7, badge)
+	Stroke(badge, Color3.fromRGB(82, 74, 118), 1)
+	Create("TextLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "Apex",
+		Font = FONT_SEMI,
+		TextSize = 11,
+		TextColor3 = Color3.fromRGB(198, 189, 255),
+		ZIndex = 12,
+		Parent = badge,
+	})
+	self:_UpdateSize()
+	return { Instance = element, Set = function(_, value) local t = element:FindFirstChild("Title"); if t then t.Text = tostring(value) end end }
+end
+
+function Section:AddButton(text, callback, desc)
+	local element, buttonStroke = self:_BaseElement("ApexButton", desc and 44 or 38)
+	self:_Title(element, text or "Button", desc)
+
+	local interact = Create("TextButton", {
+		Name = "Interact",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 13,
+		Parent = element,
+	})
+	local icon = Create("TextLabel", {
+		Size = UDim2.new(0, 24, 0, 24),
+		Position = UDim2.new(1, -36, 0.5, -12),
+		BackgroundTransparency = 1,
+		Text = "↳",
+		Font = FONT_BOLD,
+		TextSize = 17,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		ZIndex = 12,
+		Parent = element,
+	})
+	interact.MouseButton1Click:Connect(function()
+		TweenService:Create(buttonStroke, TW_FAST, { Color = Color3.fromRGB(136, 131, 163) }):Play()
+		TweenService:Create(icon, TW_FAST, { TextColor3 = Color3.fromRGB(236, 232, 255) }):Play()
+		task.delay(0.18, function()
+			if buttonStroke.Parent then
+				TweenService:Create(buttonStroke, TW_FAST, { Color = THEME.BORDER }):Play()
+				TweenService:Create(icon, TW_FAST, { TextColor3 = Color3.fromRGB(178, 170, 210) }):Play()
+			end
+		end)
+		SafeCallback(callback)
+	end)
+	self:_UpdateSize()
+	return { Instance = element, SetText = function(_, value) local t = element:FindFirstChild("Title"); if t then t.Text = tostring(value) end end }
+end
+
+function Section:AddToggle(text, default, callback, desc)
+	local element = self:_BaseElement("ApexToggle", desc and 44 or 38)
+	self:_Title(element, text or "Toggle", desc)
+	local value = default and true or false
+
+	local track = Create("Frame", {
+		Name = "ToggleTrack",
+		Size = UDim2.new(0, 42, 0, 22),
+		Position = UDim2.new(1, -54, 0.5, -11),
+		BackgroundColor3 = value and Color3.fromRGB(82, 74, 118) or Color3.fromRGB(42, 39, 50),
+		BorderSizePixel = 0,
+		ZIndex = 11,
+		Parent = element,
+	})
+	Corner(11, track)
+	Stroke(track, THEME.BORDER, 1)
+	local knob = Create("Frame", {
+		Name = "ToggleKnob",
+		Size = UDim2.new(0, 16, 0, 16),
+		Position = value and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+		BackgroundColor3 = value and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(145, 139, 170),
+		BorderSizePixel = 0,
+		ZIndex = 12,
+		Parent = track,
+	})
+	Corner(8, knob)
+	local button = Create("TextButton", {
+		Name = "Interact",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 13,
+		Parent = element,
+	})
+
+	local object = {}
+	function object:Set(newValue, silent)
+		value = newValue and true or false
+		TweenService:Create(track, TW_MED, {
+			BackgroundColor3 = value and Color3.fromRGB(82, 74, 118) or Color3.fromRGB(42, 39, 50),
+		}):Play()
+		TweenService:Create(knob, TW_MED, {
+			Position = value and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+			BackgroundColor3 = value and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(145, 139, 170),
+		}):Play()
+		if not silent then SafeCallback(callback, value) end
+	end
+	function object:Get()
+		return value
+	end
+	object.Instance = element
+
+	button.MouseButton1Click:Connect(function()
+		object:Set(not value)
+	end)
+	self:_UpdateSize()
+	return object
+end
+
+function Section:AddSlider(text, min, max, default, callback, desc)
+	min = tonumber(min) or 0
+	max = tonumber(max) or 100
+	if min > max then min, max = max, min end
+	local value = math.clamp(tonumber(default) or min, min, max)
+	local range = math.max(max - min, 1)
+
+	local element = self:_BaseElement("ApexSlider", desc and 54 or 52)
+	self:_Title(element, text or "Slider", desc)
+	local valueLabel = Create("TextLabel", {
+		Name = "Value",
+		Size = UDim2.new(0, 40, 0, 18),
+		Position = UDim2.new(1, -52, 0, 7),
+		BackgroundTransparency = 1,
+		Text = tostring(value),
+		Font = FONT_SEMI,
+		TextSize = 11,
+		TextColor3 = Color3.fromRGB(236, 232, 255),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		ZIndex = 11,
+		Parent = element,
+	})
+	local bar = Create("Frame", {
+		Name = "Bar",
+		Size = UDim2.new(1, -24, 0, 5),
+		Position = UDim2.new(0, 12, 1, -13),
+		BackgroundColor3 = THEME.BG_ACTIVE,
+		BorderSizePixel = 0,
+		ZIndex = 11,
+		Parent = element,
+	})
+	Corner(3, bar)
+	local fill = Create("Frame", {
+		Name = "Fill",
+		Size = UDim2.new((value - min) / range, 0, 1, 0),
+		BackgroundColor3 = Color3.fromRGB(136, 131, 163),
+		BorderSizePixel = 0,
+		ZIndex = 12,
+		Parent = bar,
+	})
+	Corner(3, fill)
+	Create("UIGradient", {
+		Rotation = 0,
+		Color = ColorSequence.new(Color3.fromRGB(92, 84, 130), Color3.fromRGB(198, 189, 255)),
+		Parent = fill,
+	})
+
+	local sliding = false
+	local object = {}
+	function object:Set(newValue, silent)
+		value = math.clamp(tonumber(newValue) or min, min, max)
+		local alpha = (value - min) / range
+		valueLabel.Text = tostring(value)
+		TweenService:Create(fill, TW_FAST, { Size = UDim2.new(alpha, 0, 1, 0) }):Play()
+		if not silent then SafeCallback(callback, value) end
+	end
+	function object:Get()
+		return value
+	end
+	object.Instance = element
+
+	local function updateFromX(x)
+		local width = math.max(bar.AbsoluteSize.X, 1)
+		local alpha = math.clamp((x - bar.AbsolutePosition.X) / width, 0, 1)
+		local newValue = math.floor((min + range * alpha) + 0.5)
+		object:Set(newValue)
+	end
+
+	element.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = true
+			updateFromX(input.Position.X)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateFromX(input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = false
+		end
+	end)
+	self:_UpdateSize()
+	return object
+end
+
+function Section:AddDropdown(configOrTitle, values, default, callback)
+	local config = {}
+	if type(configOrTitle) == "table" then
+		config = configOrTitle
+	else
+		config.Title = tostring(configOrTitle or "Dropdown")
+		config.Values = values or {}
+		config.Default = default
+		config.Callback = callback
+	end
+
+	local listValues = config.Values or config.Options or {}
+	local hasSearch = config.Search == true
+	local multi = config.Multi == true
+	local baseH = 42
+	local itemH = 38
+	local itemGap = 4
+	local menuPad = 6
+	local searchH = 34
+	local selected = {}
+	local selectedValue = config.Default or listValues[1]
+	local open = false
+	local setOpen
+
+	if multi then
+		if type(config.Default) == "table" then
+			for _, v in ipairs(config.Default) do selected[v] = true end
+		elseif selectedValue ~= nil then
+			selected[selectedValue] = true
+		end
+	end
+
+	local function getSelectedText()
+		if not multi then return tostring(selectedValue or "None") end
+		local output = {}
+		for _, v in ipairs(listValues) do
+			if selected[v] then table.insert(output, tostring(v)) end
+		end
+		return (#output > 0 and table.concat(output, ", ")) or "None"
+	end
+
+	local function getValue()
+		if not multi then return selectedValue end
+		local output = {}
+		for _, v in ipairs(listValues) do
+			if selected[v] then table.insert(output, v) end
+		end
+		return output
+	end
+
+	local element = self:_BaseElement(config.Name or "ApexDropdown", baseH)
+	element.ClipsDescendants = true
+	local elStroke = element:FindFirstChildOfClass("UIStroke")
+	self:_Title(element, config.Title or "Dropdown", config.Description)
+
+	local trigger = Create("TextButton", {
+		Name = "Trigger",
+		Size = UDim2.new(1, 0, 0, baseH),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 11,
+		Parent = element,
+	})
+	local valueLabel = Create("TextLabel", {
+		Size = UDim2.new(0, 132, 0, 22),
+		Position = UDim2.new(1, -170, 0, 10),
+		BackgroundTransparency = 1,
+		Text = getSelectedText(),
+		Font = FONT_REG,
+		TextSize = 12,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 12,
+		Parent = trigger,
+	})
+	local arrow = Create("TextLabel", {
+		Size = UDim2.new(0, 20, 0, 22),
+		Position = UDim2.new(1, -34, 0, 10),
+		BackgroundTransparency = 1,
+		Text = "⌄",
+		Font = FONT_BOLD,
+		TextSize = 17,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		ZIndex = 12,
+		Parent = trigger,
+	})
+
+	local menu = Create("Frame", {
+		Name = "Menu",
+		Size = UDim2.new(1, -8, 0, 0),
+		Position = UDim2.new(0, 4, 0, baseH + 10),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 12,
+		Parent = element,
+	})
+	Corner(CORNER_MD, menu)
+	local menuStroke = Stroke(menu, THEME.BORDER, 1)
+	menuStroke.Transparency = 1
+	Create("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(50, 50, 56)),
+			ColorSequenceKeypoint.new(0.25, Color3.fromRGB(120, 120, 132)),
+			ColorSequenceKeypoint.new(0.50, Color3.fromRGB(155, 155, 168)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(120, 120, 132)),
+			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(50, 50, 56)),
+		}),
+		Parent = menuStroke,
+	})
+	Padding(menu, menuPad, menuPad, menuPad, menuPad)
+
+	local searchBox
+	if hasSearch then
+		local sHolder = Create("Frame", {
+			Size = UDim2.new(1, 0, 0, searchH - 4),
+			BackgroundColor3 = Color3.fromRGB(28, 28, 31),
+			BorderSizePixel = 0,
+			ZIndex = 14,
+			Parent = menu,
+		})
+		Corner(8, sHolder)
+		Stroke(sHolder, THEME.BORDER, 1)
+		Padding(sHolder, 0, 10, 0, 10)
+		ListLayout(sHolder, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 6)
+		Create("TextLabel", {
+			Size = UDim2.new(0, 14, 0, 14),
+			BackgroundTransparency = 1,
+			Text = "⌕",
+			Font = FONT_REG,
+			TextSize = 13,
+			TextColor3 = Color3.fromRGB(95, 90, 112),
+			ZIndex = 15,
+			LayoutOrder = 1,
+			Parent = sHolder,
+		})
+		searchBox = Create("TextBox", {
+			Size = UDim2.new(1, -24, 1, 0),
+			BackgroundTransparency = 1,
+			Text = "",
+			PlaceholderText = "Search...",
+			PlaceholderColor3 = Color3.fromRGB(95, 90, 112),
+			Font = FONT_REG,
+			TextSize = 12,
+			TextColor3 = Color3.fromRGB(236, 232, 255),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ClearTextOnFocus = false,
+			ZIndex = 15,
+			LayoutOrder = 2,
+			Parent = sHolder,
+		})
+	end
+
+	local itemsFrame = Create("Frame", {
+		Size = UDim2.new(1, 0, 1, hasSearch and -(searchH + 2) or 0),
+		Position = UDim2.new(0, 0, 0, hasSearch and (searchH + 2) or 0),
+		BackgroundTransparency = 1,
+		ZIndex = 13,
+		Parent = menu,
+	})
+	ListLayout(itemsFrame, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, itemGap)
+	local noResults = Create("TextLabel", {
+		Size = UDim2.new(1, 0, 0, itemH),
+		BackgroundTransparency = 1,
+		Text = "No results found",
+		Font = FONT_REG,
+		TextSize = 12,
+		TextColor3 = Color3.fromRGB(95, 90, 112),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Visible = false,
+		ZIndex = 14,
+		Parent = itemsFrame,
+	})
+
+	local itemButtons = {}
+	local itemLabels = {}
+	local itemChecks = {}
+
+	local function refreshVisuals()
+		valueLabel.Text = getSelectedText()
+		for valueItem, item in pairs(itemButtons) do
+			local active = multi and selected[valueItem] or ((not multi) and valueItem == selectedValue)
+			TweenService:Create(item, TW_FAST, { BackgroundTransparency = 1 }):Play()
+			if itemLabels[valueItem] then
+				local targetX = (multi and active) and 28 or 0
+				TweenService:Create(itemLabels[valueItem], TW_FAST, {
+					Position = UDim2.new(0, targetX, 0, 0),
+					TextColor3 = active and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(178, 170, 210),
+				}):Play()
+				local sc = itemLabels[valueItem]:FindFirstChildOfClass("UIScale")
+				if sc then TweenService:Create(sc, TW_FAST, { Scale = active and 1.08 or 1.0 }):Play() end
+				itemLabels[valueItem].Font = active and FONT_SEMI or FONT_REG
+			end
+			if itemChecks[valueItem] then
+				local img = itemChecks[valueItem]:FindFirstChildOfClass("ImageLabel")
+				if img then TweenService:Create(img, TW_FAST, { ImageTransparency = active and 0 or 1 }):Play() end
+			end
+		end
+	end
+
+	for idx, valueItem in ipairs(listValues) do
+		local item = Create("TextButton", {
+			Name = "Item_" .. tostring(idx),
+			Size = UDim2.new(1, 0, 0, itemH),
+			BackgroundColor3 = THEME.BG_SEARCH,
+			BackgroundTransparency = 1,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 14,
+			LayoutOrder = idx,
+			Parent = itemsFrame,
+		})
+		Corner(8, item)
+		Padding(item, 0, 12, 0, 12)
+
+		if multi then
+			local logoFrame = Create("Frame", {
+				Size = UDim2.new(0, 26, 0, 26),
+				Position = UDim2.new(0, 0, 0.5, -13),
+				BackgroundTransparency = 1,
+				Visible = true,
+				ZIndex = 15,
+				Parent = item,
+			})
+			Create("ImageLabel", {
+				Size = UDim2.new(1, 0, 1, 0),
+				BackgroundTransparency = 1,
+				ImageTransparency = 1,
+				Image = LOGO_ASSET,
+				ScaleType = Enum.ScaleType.Fit,
+				ZIndex = 16,
+				Parent = logoFrame,
+			})
+			itemChecks[valueItem] = logoFrame
+		end
+
+		itemLabels[valueItem] = Create("TextLabel", {
+			Size = UDim2.new(1, 0, 1, 0),
+			Position = UDim2.new(0, 0, 0, 0),
+			BackgroundTransparency = 1,
+			Text = tostring(valueItem),
+			Font = FONT_REG,
+			TextSize = 12,
+			TextColor3 = Color3.fromRGB(178, 170, 210),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = 15,
+			Parent = item,
+		})
+		Create("UIScale", { Scale = 1, Parent = itemLabels[valueItem] })
+		itemButtons[valueItem] = item
+
+		item.MouseEnter:Connect(function()
+			local active = multi and selected[valueItem] or ((not multi) and valueItem == selectedValue)
+			if not active then
+				TweenService:Create(item, TW_FAST, {
+					BackgroundTransparency = 0.85,
+					BackgroundColor3 = Color3.fromRGB(60, 60, 68),
+				}):Play()
+				local sc = itemLabels[valueItem]:FindFirstChildOfClass("UIScale")
+				if sc then TweenService:Create(sc, TW_FAST, { Scale = 1.04 }):Play() end
+			end
+		end)
+		item.MouseLeave:Connect(function()
+			local active = multi and selected[valueItem] or ((not multi) and valueItem == selectedValue)
+			if not active and itemLabels[valueItem] then
+				local sc = itemLabels[valueItem]:FindFirstChildOfClass("UIScale")
+				if sc then TweenService:Create(sc, TW_FAST, { Scale = 1.0 }):Play() end
+			end
+			refreshVisuals()
+		end)
+		item.MouseButton1Click:Connect(function()
+			if multi then
+				selected[valueItem] = not selected[valueItem]
+			else
+				selectedValue = valueItem
+				task.defer(function() setOpen(false) end)
+			end
+			refreshVisuals()
+			SafeCallback(config.Callback, getValue())
+		end)
+	end
+
+	local function calcMenuHeight()
+		local visCount = 0
+		for _, itm in pairs(itemButtons) do
+			if itm.Visible then visCount = visCount + 1 end
+		end
+		local searchSpace = hasSearch and (searchH + 2) or 0
+		local itemsH = visCount > 0 and (visCount * itemH + math.max(0, visCount - 1) * itemGap) or itemH
+		return menuPad * 2 + searchSpace + itemsH
+	end
+
+	setOpen = function(state)
+		if open == state then return end
+		open = state
+		local menuH = open and calcMenuHeight() or 0
+		local totalH = baseH + (open and (menuH + 16) or 0)
+		element.ZIndex = open and 25 or 10
+		TweenService:Create(element, TW_DROPDOWN, { Size = UDim2.new(1, 0, 0, totalH) }):Play()
+		TweenService:Create(menu, TW_DROPDOWN, {
+			Size = UDim2.new(1, -8, 0, menuH),
+			BackgroundTransparency = open and 0 or 1,
+		}):Play()
+		TweenService:Create(menuStroke, TW_FAST, { Transparency = open and 0 or 1 }):Play()
+		if elStroke then TweenService:Create(elStroke, TW_FAST, { Color = open and Color3.fromRGB(87, 84, 104) or THEME.BORDER }):Play() end
+		TweenService:Create(arrow, TW_DROPDOWN, {
+			Rotation = open and 180 or 0,
+			TextColor3 = open and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(178, 170, 210),
+		}):Play()
+		if not open and searchBox then
+			searchBox.Text = ""
+			for _, itm in pairs(itemButtons) do itm.Visible = true end
+			noResults.Visible = false
+		end
+		task.delay(0.03, function() self:_UpdateSize() end)
+		task.delay(0.25, function() self:_UpdateSize() end)
+	end
+
+	trigger.MouseButton1Click:Connect(function() setOpen(not open) end)
+
+	if searchBox then
+		searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+			local q = string.lower(searchBox.Text or "")
+			local anyVisible = false
+			for valueItem, itm in pairs(itemButtons) do
+				local match = q == "" or string.find(string.lower(tostring(valueItem)), q, 1, true) ~= nil
+				itm.Visible = match
+				if match then anyVisible = true end
+			end
+			noResults.Visible = (not anyVisible) and q ~= ""
+			if open then
+				local newMenuH = calcMenuHeight()
+				TweenService:Create(element, TW_DROPDOWN, { Size = UDim2.new(1, 0, 0, baseH + newMenuH + 16) }):Play()
+				TweenService:Create(menu, TW_DROPDOWN, { Size = UDim2.new(1, -8, 0, newMenuH) }):Play()
+				task.delay(0.03, function() self:_UpdateSize() end)
+				task.delay(0.25, function() self:_UpdateSize() end)
+			end
+		end)
+	end
+
+	refreshVisuals()
+	self:_UpdateSize()
+	return {
+		Instance = element,
+		Set = function(_, newValue, silent)
+			if multi then
+				for k in pairs(selected) do selected[k] = nil end
+				if type(newValue) == "table" then
+					for _, v in ipairs(newValue) do selected[v] = true end
+				else
+					selected[newValue] = true
+				end
+			else
+				selectedValue = newValue
+			end
+			refreshVisuals()
+			if not silent then SafeCallback(config.Callback, getValue()) end
+		end,
+		Get = getValue,
+		Open = function() setOpen(true) end,
+		Close = function() setOpen(false) end,
+	}
+end
+
+function Section:AddInput(text, default, callback, desc)
+	local element = self:_BaseElement("ApexInput", desc and 46 or 42)
+	self:_Title(element, text or "Input", desc)
+	local holder = Create("Frame", {
+		Name = "InputHolder",
+		Size = UDim2.new(0, 142, 0, 26),
+		Position = UDim2.new(1, -154, 0.5, -13),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 11,
+		Parent = element,
+	})
+	Corner(7, holder)
+	Stroke(holder, THEME.BORDER, 1)
+	local box = Create("TextBox", {
+		Name = "InputBox",
+		Size = UDim2.new(1, -16, 1, 0),
+		Position = UDim2.new(0, 8, 0, 0),
+		BackgroundTransparency = 1,
+		Text = tostring(default or ""),
+		PlaceholderText = "Type here...",
+		PlaceholderColor3 = Color3.fromRGB(95, 90, 112),
+		Font = FONT_REG,
+		TextSize = 11,
+		TextColor3 = Color3.fromRGB(236, 232, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+		ZIndex = 12,
+		Parent = holder,
+	})
+	local object = {}
+	function object:Set(value, silent)
+		box.Text = tostring(value or "")
+		if not silent then SafeCallback(callback, box.Text) end
+	end
+	function object:Get() return box.Text end
+	object.Instance = element
+	box.FocusLost:Connect(function() SafeCallback(callback, box.Text) end)
+	self:_UpdateSize()
+	return object
+end
+
+function Section:AddKeybind(text, default, callback, desc)
+	local element = self:_BaseElement("ApexKeybind", desc and 44 or 38)
+	self:_Title(element, text or "Keybind", desc)
+	local current = GetKeyCode(default, Enum.KeyCode.LeftAlt)
+	local listening = false
+	local button = Create("TextButton", {
+		Name = "BindButton",
+		Size = UDim2.new(0, 74, 0, 24),
+		Position = UDim2.new(1, -86, 0.5, -12),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BorderSizePixel = 0,
+		Text = current.Name,
+		Font = FONT_SEMI,
+		TextSize = 10,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		AutoButtonColor = false,
+		ZIndex = 12,
+		Parent = element,
+	})
+	Corner(7, button)
+	Stroke(button, THEME.BORDER, 1)
+	button.MouseButton1Click:Connect(function()
+		listening = true
+		button.Text = "..."
+	end)
+	local conn
+	conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or not listening then return end
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			current = input.KeyCode
+			button.Text = current.Name
+			listening = false
+			SafeCallback(callback, current)
+		end
+	end)
+	self:_UpdateSize()
+	return {
+		Instance = element,
+		Get = function() return current end,
+		Set = function(_, keyCode, silent)
+			current = GetKeyCode(keyCode, current)
+			button.Text = current.Name
+			if not silent then SafeCallback(callback, current) end
+		end,
+		Listening = function() return listening end,
+		Disconnect = function() if conn then conn:Disconnect() end end,
+	}
+end
+
+function Page:UpdateCanvas()
+	local contentHeight = self.Layout.AbsoluteContentSize.Y + self.Padding.PaddingTop.Offset + self.Padding.PaddingBottom.Offset
+	self.Scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+	if self.Window and self.Window.UpdateContentCanvas then
+		self.Window:UpdateContentCanvas()
+	end
+end
+
+function Page:AddSection(name, subtitle)
+	local sectionFrame = Create("Frame", {
+		Name = "Section_" .. tostring(name or "Section"),
+		Size = UDim2.new(1, 0, 0, 0),
+		BackgroundColor3 = THEME.BG_SIDEBAR,
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 8,
+		LayoutOrder = #self.Sections + 1,
+		Parent = self.Scroll,
+	})
+	Corner(CORNER_MD, sectionFrame)
+	local sectionStroke = Create("UIStroke", {
+		Color = Color3.fromRGB(142, 142, 150),
+		Transparency = 0,
+		Thickness = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+		Parent = sectionFrame,
+	})
+	Create("UIGradient", {
+		Name = "SectionStrokeFade",
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(72, 72, 78)),
+			ColorSequenceKeypoint.new(0.50, Color3.fromRGB(150, 150, 158)),
+			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(72, 72, 78)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.00, 1.00),
+			NumberSequenceKeypoint.new(0.18, 0.34),
+			NumberSequenceKeypoint.new(0.50, 0.06),
+			NumberSequenceKeypoint.new(0.82, 0.34),
+			NumberSequenceKeypoint.new(1.00, 1.00),
+		}),
+		Parent = sectionStroke,
+	})
+
+	local header = Create("Frame", {
+		Name = "SectionHeader",
+		Size = UDim2.new(1, 0, 0, 48),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 9,
+		Parent = sectionFrame,
+	})
+	Padding(header, 0, 16, 0, 16)
+	Create("TextLabel", {
+		Name = "TabSection",
+		Size = UDim2.new(1, -88, 0, 18),
+		Position = UDim2.new(0, 0, 0, 12),
+		BackgroundTransparency = 1,
+		Text = tostring(name or "TabSection"),
+		Font = FONT_BOLD,
+		TextSize = 15,
+		TextColor3 = Color3.fromRGB(236, 232, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 10,
+		Parent = header,
+	})
+	Create("TextLabel", {
+		Name = "Subtitle",
+		Size = UDim2.new(1, -88, 0, 14),
+		Position = UDim2.new(0, 0, 0, 30),
+		BackgroundTransparency = 1,
+		Text = subtitle or "Basic controls rebuilt inside a clipped, layout-safe section",
+		Font = FONT_REG,
+		TextSize = 11,
+		TextColor3 = Color3.fromRGB(145, 139, 170),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 10,
+		Parent = header,
+	})
+
+	local elementsClip = Create("Frame", {
+		Name = "ElementsClip",
+		Size = UDim2.new(1, -36, 0, 0),
+		Position = UDim2.new(0, 18, 0, 52),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 9,
+		Parent = sectionFrame,
+	})
+	local elementsList = Create("Frame", {
+		Name = "ElementsList",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 9,
+		Parent = elementsClip,
+	})
+	local elementsLayout = ListLayout(elementsList, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, 8)
+
+	local section = setmetatable({
+		Page = self,
+		Container = sectionFrame,
+		Header = header,
+		ElementsClip = elementsClip,
+		ElementsList = elementsList,
+		ElementsLayout = elementsLayout,
+	}, Section)
+	table.insert(self.Sections, section)
+	elementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		section:_UpdateSize()
+	end)
+	task.defer(function() section:_UpdateSize() end)
+	return section
+end
+
+function Window:_UpdateBreadcrumb()
+	if self.BreadcrumbTabLabel then self.BreadcrumbTabLabel.Text = self.CurrentTabName or "Dashboard" end
+	if self.BreadcrumbSectionLabel then self.BreadcrumbSectionLabel.Text = self.CurrentSectionName or "Section" end
+	if self.PageTitle then self.PageTitle.Text = self.CurrentTabName or self.Title end
+end
+
+function Window:_SetActivePage(page)
+	if not page or self.CurrentPage == page then return end
+	self.CurrentPage = page
+	self.CurrentTabName = page.Name
+	self.CurrentSectionName = page.SectionName or "Section"
+	for _, p in ipairs(self.Pages) do
+		local selected = p == page
+		p.Viewport.Visible = selected
+		TweenService:Create(p.Nav.ActiveBar, TW_FAST, {
+			Size = selected and UDim2.new(0, 3, 0.54, 0) or UDim2.new(0, 0, 0.54, 0),
+		}):Play()
+		p.Nav.ActiveBar.Visible = selected
+		TweenService:Create(p.Nav.Button, TW_FAST, {
+			BackgroundColor3 = selected and THEME.BG_ACTIVE or THEME.BG_SIDEBAR,
+			BackgroundTransparency = selected and 0 or 1,
+		}):Play()
+		if p.Nav.IconIsImage then
+			TweenService:Create(p.Nav.Icon, TW_FAST, {
+				ImageColor3 = selected and THEME.TEXT_ACCENT or THEME.TEXT_SECONDARY,
+			}):Play()
+		else
+			TweenService:Create(p.Nav.Icon, TW_FAST, {
+				TextColor3 = selected and THEME.TEXT_ACCENT or THEME.TEXT_SECONDARY,
+			}):Play()
+		end
+		p.Nav.Text.Font = selected and FONT_SEMI or FONT_REG
+		TweenService:Create(p.Nav.Text, TW_FAST, {
+			TextColor3 = selected and THEME.TEXT_PRIMARY or THEME.TEXT_SECONDARY,
+		}):Play()
+	end
+	self:_UpdateBreadcrumb()
+end
+
+function Window:_ReflowNav()
+	local y = self.SidebarClosed and 112 or 122
+	for index, page in ipairs(self.Pages) do
+		page.Nav.BaseY = y
+		page.Nav.BaseYClosed = y - 19
+		page.Nav.Button.Position = self.SidebarClosed
+			and UDim2.new(0.5, -18, 0, page.Nav.BaseYClosed)
+			or UDim2.new(0, 14, 0, page.Nav.BaseY)
+		page.Nav.Button.Size = self.SidebarClosed and UDim2.new(0, 36, 0, 36) or UDim2.new(1, -28, 0, 34)
+		y = y + 41
+	end
+	if self.SidebarSectionDivider then
+		local dividerY = y + 5
+		self.SidebarSectionDivider.Position = self.SidebarClosed and UDim2.new(0.5, -17, 0, dividerY) or UDim2.new(0, 14, 0, dividerY)
+		self.SidebarSectionDivider.Size = self.SidebarClosed and UDim2.new(0, 34, 0, 1) or UDim2.new(1, -28, 0, 1)
+	end
+end
+
+function Window:SetSidebarExpanded(expanded)
+	local isExpanded = expanded and true or false
+	self.SidebarState = isExpanded and "Expanded" or "Closed"
+	self.SidebarClosed = not isExpanded
+	local targetW = isExpanded and SIDEBAR_EXPANDED or SIDEBAR_COLLAPSED
+	TweenService:Create(self.Sidebar, TW_SIDEBAR, { Size = UDim2.new(0, targetW, 1, -NEW_TOPBAR_H) }):Play()
+	TweenService:Create(self.ContentArea, TW_SIDEBAR, {
+		Size = UDim2.new(1, -targetW, 1, -NEW_TOPBAR_H),
+		Position = UDim2.new(0, targetW, 0, NEW_TOPBAR_H),
+	}):Play()
+	TweenService:Create(self.SidebarDivider, TW_SIDEBAR, {
+		Position = isExpanded and UDim2.new(0, targetW, 0, NEW_TOPBAR_H) or UDim2.new(0, targetW, 0, NEW_TOPBAR_H + TOPBAR_H),
+		Size = isExpanded and UDim2.new(0, 1, 1, -NEW_TOPBAR_H) or UDim2.new(0, 1, 1, -(NEW_TOPBAR_H + TOPBAR_H)),
+		BackgroundTransparency = 0.35,
+	}):Play()
+	TweenService:Create(self.LineBelowPageTopBar, TW_SIDEBAR, {
+		Size = isExpanded and UDim2.new(1, -targetW, 0, 1) or UDim2.new(1, 0, 0, 1),
+		Position = isExpanded and UDim2.new(0, targetW, 0, NEW_TOPBAR_H + TOPBAR_H) or UDim2.new(0, 0, 0, NEW_TOPBAR_H + TOPBAR_H),
+		BackgroundTransparency = 0.35,
+	}):Play()
+
+	TweenService:Create(self.AppNameLabel, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
+	TweenService:Create(self.LogoBox, TW_SIDEBAR, {
+		Size = isExpanded and UDim2.new(0, 36, 0, 36) or UDim2.new(0, 38, 0, 38),
+		Position = isExpanded and UDim2.new(0, 14, 0.5, -18) or UDim2.new(0.5, -19, 0.5, -19),
+	}):Play()
+	TweenService:Create(self.SidebarSearch, TW_SIDEBAR, {
+		Size = isExpanded and UDim2.new(1, -28, 0, 32) or UDim2.new(0, 34, 0, 34),
+		Position = isExpanded and UDim2.new(0, 14, 0, 62) or UDim2.new(0.5, -17, 0, 62),
+		BackgroundTransparency = isExpanded and 0 or 0.08,
+	}):Play()
+	TweenService:Create(self.SidebarSearchStroke, TW_SIDEBAR, { Transparency = isExpanded and 0 or 0.18 }):Play()
+	TweenService:Create(self.SearchIcon, TW_SIDEBAR, {
+		Size = isExpanded and UDim2.new(0, 16, 1, 0) or UDim2.fromScale(1, 1),
+		Position = isExpanded and UDim2.new(0, 10, 0, 0) or UDim2.new(0, 0, 0, 0),
+		TextTransparency = 0,
+	}):Play()
+	TweenService:Create(self.SearchText, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
+	TweenService:Create(self.SidebarTopDivider, TW_SIDEBAR, {
+		Size = isExpanded and UDim2.new(1, -28, 0, 1) or UDim2.new(0, 34, 0, 1),
+		Position = isExpanded and UDim2.new(0, 14, 0, 106) or UDim2.new(0.5, -17, 0, 104),
+		BackgroundTransparency = 0.35,
+	}):Play()
+
+	for _, page in ipairs(self.Pages) do
+		TweenService:Create(page.Nav.Button, TW_SIDEBAR, {
+			Size = isExpanded and UDim2.new(1, -28, 0, 34) or UDim2.new(0, 36, 0, 36),
+			Position = isExpanded and UDim2.new(0, 14, 0, page.Nav.BaseY) or UDim2.new(0.5, -18, 0, page.Nav.BaseYClosed),
+		}):Play()
+		TweenService:Create(page.Nav.Text, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
+		TweenService:Create(page.Nav.Icon, TW_SIDEBAR, {
+			Size = isExpanded and UDim2.new(0, 20, 1, 0) or UDim2.new(1, 0, 1, 0),
+			Position = isExpanded and UDim2.new(0, 16, 0, 0) or UDim2.new(0, 0, 0, 0),
+		}):Play()
+	end
+	if self.SidebarSectionDivider then
+		TweenService:Create(self.SidebarSectionDivider, TW_SIDEBAR, {
+			Size = isExpanded and UDim2.new(1, -28, 0, 1) or UDim2.new(0, 34, 0, 1),
+			Position = isExpanded and UDim2.new(0, 14, 0, self.SidebarSectionDivider.Position.Y.Offset) or UDim2.new(0.5, -17, 0, self.SidebarSectionDivider.Position.Y.Offset),
+			BackgroundTransparency = 0.35,
+		}):Play()
+	end
+	self:_ReflowNav()
+end
+
+function Window:UpdateContentCanvas()
+	if self.CurrentPage then self.CurrentPage:UpdateCanvas() end
+end
+
+function Window:AddPage(name, icon)
+	local pageName = tostring(name or "Page")
+	local pageIcon = tostring(icon or "⊞")
+	local pageViewport = Create("Frame", {
+		Name = pageName .. "Page",
+		Size = UDim2.new(1, 0, 1, -TOPBAR_H),
+		Position = UDim2.new(0, 0, 0, TOPBAR_H),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Visible = false,
+		ZIndex = 7,
+		Parent = self.ContentArea,
+	})
+	Corner(CORNER_MD, pageViewport)
+	local scroll = Create("ScrollingFrame", {
+		Name = "ContentShell",
+		Size = UDim2.new(1, 0, 1, 0),
+		Position = UDim2.new(0, 0, 0, 0),
+		BackgroundTransparency = 1,
+		ScrollBarThickness = 0,
+		ScrollBarImageColor3 = THEME.BORDER_LIGHT,
+		ScrollBarImageTransparency = 1,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		AutomaticCanvasSize = Enum.AutomaticSize.None,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		CanvasPosition = Vector2.new(0, 0),
+		ElasticBehavior = Enum.ElasticBehavior.Never,
+		ScrollingEnabled = true,
+		Active = true,
+		ClipsDescendants = true,
+		BorderSizePixel = 0,
+		ZIndex = 8,
+		Parent = pageViewport,
+	})
+	local padding = Padding(scroll, 12, 12, 18, 12)
+	local layout = ListLayout(scroll, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 8)
+
+	local navY = 122 + (#self.Pages * 41)
+	local navButton = Create("TextButton", {
+		Name = "NavItem_" .. pageName,
+		Size = UDim2.new(1, -28, 0, 34),
+		Position = UDim2.new(0, 14, 0, navY),
+		BackgroundColor3 = THEME.BG_SIDEBAR,
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ClipsDescendants = true,
+		ZIndex = 8,
+		Parent = self.Sidebar,
+	})
+	Corner(8, navButton)
+	local activeBar = Create("Frame", {
+		Name = "ActiveBar",
+		Size = UDim2.new(0, 0, 0.54, 0),
+		Position = UDim2.new(0, 0, 0.23, 0),
+		BackgroundColor3 = THEME.ACCENT_BLUE,
+		BorderSizePixel = 0,
+		Visible = false,
+		ZIndex = 9,
+		Parent = navButton,
+	})
+	Corner(2, activeBar)
+	local iconIsImage = string.find(pageIcon, "rbxassetid://", 1, true) ~= nil or string.find(pageIcon, "http", 1, true) ~= nil
+	local iconText
+	if iconIsImage then
+		iconText = Create("ImageLabel", {
+			Name = "Icon",
+			Size = UDim2.new(0, 18, 0, 18),
+			Position = UDim2.new(0, 17, 0.5, -9),
+			BackgroundTransparency = 1,
+			Image = pageIcon,
+			ImageColor3 = THEME.TEXT_SECONDARY,
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 9,
+			Parent = navButton,
+		})
+	else
+		iconText = Create("TextLabel", {
+			Name = "Icon",
+			Size = UDim2.new(0, 20, 1, 0),
+			Position = UDim2.new(0, 16, 0, 0),
+			BackgroundTransparency = 1,
+			Text = pageIcon,
+			Font = FONT_REG,
+			TextSize = 13,
+			TextColor3 = THEME.TEXT_SECONDARY,
+			TextTransparency = 0,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 9,
+			Parent = navButton,
+		})
+	end
+	local textObj = Create("TextLabel", {
+		Name = "Label",
+		Size = UDim2.new(1, -54, 1, 0),
+		Position = UDim2.new(0, 50, 0, 0),
+		BackgroundTransparency = 1,
+		Text = pageName,
+		Font = FONT_REG,
+		TextSize = 12,
+		TextColor3 = THEME.TEXT_SECONDARY,
+		TextTransparency = self.SidebarClosed and 1 or 0,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 9,
+		Parent = navButton,
+	})
+
+	local page = setmetatable({
+		Window = self,
+		Name = pageName,
+		SectionName = "Section",
+		Viewport = pageViewport,
+		Scroll = scroll,
+		Padding = padding,
+		Layout = layout,
+		Sections = {},
+		Nav = {
+			Button = navButton,
+			ActiveBar = activeBar,
+			Icon = iconText,
+			IconIsImage = iconIsImage,
+			Text = textObj,
+			BaseY = navY,
+			BaseYClosed = navY - 19,
+		},
+	}, Page)
+
+	navButton.MouseButton1Click:Connect(function()
+		self:_SetActivePage(page)
+	end)
+	navButton.MouseEnter:Connect(function()
+		if self.CurrentPage ~= page then
+			TweenService:Create(navButton, TW_FAST, { BackgroundColor3 = THEME.BG_HOVER, BackgroundTransparency = 0 }):Play()
+		end
+	end)
+	navButton.MouseLeave:Connect(function()
+		if self.CurrentPage ~= page then
+			TweenService:Create(navButton, TW_FAST, { BackgroundTransparency = 1 }):Play()
+		end
+	end)
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page:UpdateCanvas() end)
+	scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() page:UpdateCanvas() end)
+	table.insert(self.Pages, page)
+	self:_ReflowNav()
+	if not self.CurrentPage then self:_SetActivePage(page) end
+	task.defer(function() page:UpdateCanvas() end)
+	return page
+end
+
+function Window:Destroy()
+	for _, conn in ipairs(self.Connections) do
+		pcall(function() conn:Disconnect() end)
+	end
+	if self.ScreenGui then self.ScreenGui:Destroy() end
+end
+
+function Window:SetVisible(state)
+	self.Visible = state and true or false
+	self.Window.Visible = self.Visible
+end
+
+function Window:Toggle()
+	self:SetVisible(not self.Visible)
+end
+
+function Library.new(config)
+	config = config or {}
+	local title = tostring(config.Title or config.Name or "Apex")
+	local logo = tostring(config.Logo or LOGO_ASSET)
+	local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
+
+	local screenGui = Create("ScreenGui", {
+		Name = config.GuiName or "ApexUI",
+		ResetOnSpawn = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		IgnoreGuiInset = true,
+		Parent = PlayerGui,
+	})
+
+	local root = Create("Frame", {
+		Name = "Window",
+		Size = config.Size or WINDOW_SIZE,
+		Position = config.Position or WINDOW_POS,
+		BackgroundColor3 = THEME.BG_WINDOW,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 5,
+		Parent = screenGui,
+	})
+	Corner(CORNER_XL, root)
+	Create("UIGradient", {
+		Rotation = 270,
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.25) }),
+		Color = ColorSequence.new(Color3.fromRGB(40, 40, 43), Color3.fromRGB(24, 24, 25)),
+		Parent = root,
+	})
+	GradientStrokeFrame(root, "WindowGradientBorder", CORNER_XL, 2, 120)
+
+	local lineBelowNewTopBar = Create("Frame", {
+		Name = "LineBelowNewTopBar",
+		Size = UDim2.new(1, 0, 0, 1),
+		Position = UDim2.new(0, 0, 0, NEW_TOPBAR_H),
+		BackgroundColor3 = THEME.BORDER,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		ZIndex = 12,
+		Parent = root,
+	})
+	local lineBelowPageTopBar = Create("Frame", {
+		Name = "LineBelowPageTopBar",
+		Size = UDim2.new(1, -SIDEBAR_EXPANDED, 0, 1),
+		Position = UDim2.new(0, SIDEBAR_EXPANDED, 0, NEW_TOPBAR_H + TOPBAR_H),
+		BackgroundColor3 = THEME.BORDER,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		ZIndex = 12,
+		Parent = root,
+	})
+	local sidebarDivider = Create("Frame", {
+		Name = "SidebarDivider",
+		Size = UDim2.new(0, 1, 1, -NEW_TOPBAR_H),
+		Position = UDim2.new(0, SIDEBAR_EXPANDED, 0, NEW_TOPBAR_H),
+		BackgroundColor3 = THEME.BORDER,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		ZIndex = 12,
+		Parent = root,
+	})
+
+	local newTopBar = Create("Frame", {
+		Name = "NewTopBar",
+		Size = UDim2.new(1, 0, 0, NEW_TOPBAR_H),
+		Position = UDim2.new(0, 0, 0, 0),
+		BackgroundColor3 = THEME.BG_TOPBAR,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 10,
+		Parent = root,
+	})
+	Corner(CORNER_XL, newTopBar)
+	Create("Frame", { Name = "NTBBottomLeftFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(0, 0, 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
+	Create("Frame", { Name = "NTBBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
+
+	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 22), Position = UDim2.new(0, 14, 0.5, -11), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
+	local toggleIconBar1 = Create("Frame", { Name = "Bar1", Size = UDim2.new(0, 3, 0.7, 0), Position = UDim2.new(0, 4, 0.15, 0), BackgroundColor3 = THEME.TEXT_MUTED, BorderSizePixel = 0, ZIndex = 13, Parent = sidebarToggle })
+	Corner(1, toggleIconBar1)
+	local toggleIconBar2 = Create("Frame", { Name = "Bar2", Size = UDim2.new(0, 3, 0.7, 0), Position = UDim2.new(0, 10, 0.15, 0), BackgroundColor3 = THEME.TEXT_MUTED, BorderSizePixel = 0, ZIndex = 13, Parent = sidebarToggle })
+	Corner(1, toggleIconBar2)
+	local toggleIconBlock = Create("Frame", { Name = "Block", Size = UDim2.new(0, 7, 0.7, 0), Position = UDim2.new(0, 17, 0.15, 0), BackgroundColor3 = THEME.TEXT_MUTED, BorderSizePixel = 0, ZIndex = 13, Parent = sidebarToggle })
+	Corner(1, toggleIconBlock)
+
+	sidebarToggle.MouseEnter:Connect(function()
+		TweenService:Create(toggleIconBar1, TW_FAST, { BackgroundColor3 = THEME.TEXT_PRIMARY }):Play()
+		TweenService:Create(toggleIconBar2, TW_FAST, { BackgroundColor3 = THEME.TEXT_PRIMARY }):Play()
+		TweenService:Create(toggleIconBlock, TW_FAST, { BackgroundColor3 = THEME.TEXT_PRIMARY }):Play()
+	end)
+	sidebarToggle.MouseLeave:Connect(function()
+		TweenService:Create(toggleIconBar1, TW_FAST, { BackgroundColor3 = THEME.TEXT_MUTED }):Play()
+		TweenService:Create(toggleIconBar2, TW_FAST, { BackgroundColor3 = THEME.TEXT_MUTED }):Play()
+		TweenService:Create(toggleIconBlock, TW_FAST, { BackgroundColor3 = THEME.TEXT_MUTED }):Play()
+	end)
+
+	local dotHolder = Create("Frame", { Name = "DotHolder", Size = UDim2.new(0, 68, 1, 0), Position = UDim2.new(1, -66, 0, 0), BackgroundTransparency = 1, ZIndex = 12, Parent = newTopBar })
+	ListLayout(dotHolder, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
+	local function macDot(color, symbol)
+		local dot = Create("Frame", { Size = UDim2.new(0, 12, 0, 12), BackgroundColor3 = THEME.DOT_GRAY, BorderSizePixel = 0, ZIndex = 13, Parent = dotHolder })
+		Corner(6, dot)
+		local lbl = Create("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", Font = FONT_BOLD, TextSize = 8, TextColor3 = Color3.fromRGB(40, 0, 0), TextTransparency = 1, ZIndex = 14, Parent = dot })
+		dot.MouseEnter:Connect(function()
+			TweenService:Create(dot, TW_FAST, { BackgroundColor3 = color }):Play()
+			lbl.Text = symbol
+			TweenService:Create(lbl, TW_FAST, { TextTransparency = 0 }):Play()
+		end)
+		dot.MouseLeave:Connect(function()
+			TweenService:Create(dot, TW_FAST, { BackgroundColor3 = THEME.DOT_GRAY }):Play()
+			TweenService:Create(lbl, TW_FAST, { TextTransparency = 1 }):Play()
+		end)
+		return dot
+	end
+	macDot(THEME.DOT_RED, "×")
+	macDot(THEME.DOT_YELLOW, "−")
+	macDot(THEME.DOT_GREEN, "+")
+
+	local sidebar = Create("Frame", { Name = "Sidebar", Size = UDim2.new(0, SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, 0, 0, NEW_TOPBAR_H), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 6, Parent = root })
+	Corner(CORNER_XL, sidebar)
+	Create("Frame", { Name = "SidebarTopLeftFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
+	Create("Frame", { Name = "SidebarTopRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
+	Create("Frame", { Name = "SidebarBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
+	local sidebarTop = Create("Frame", { Name = "SidebarTop", Size = UDim2.new(1, 0, 0, 58), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 7, Parent = sidebar })
+	local logoBox = Create("Frame", { Name = "LogoBox", Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0, 14, 0.5, -18), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ZIndex = 8, Parent = sidebarTop })
+	Corner(9, logoBox)
+	Create("ImageLabel", { Name = "Logo", Size = UDim2.new(1, -10, 1, -10), Position = UDim2.new(0, 5, 0, 5), BackgroundTransparency = 1, Image = logo, ScaleType = Enum.ScaleType.Fit, ZIndex = 9, Parent = logoBox })
+	local appNameLabel = Create("TextLabel", { Name = "AppName", Size = UDim2.new(1, -62, 1, 0), Position = UDim2.new(0, 58, 0, 0), BackgroundTransparency = 1, Text = title, Font = FONT_BOLD, TextSize = 16, TextColor3 = THEME.TEXT_ACCENT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 8, Parent = sidebarTop })
+
+	local sidebarSearch = Create("Frame", { Name = "SidebarSearch", Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 62), BackgroundColor3 = THEME.BG_SEARCH, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
+	Corner(8, sidebarSearch)
+	local sidebarSearchStroke = Stroke(sidebarSearch, THEME.BORDER, 1)
+	local searchIcon = Create("TextLabel", { Name = "SearchIcon", Size = UDim2.new(0, 16, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, Text = "⌕", Font = FONT_REG, TextSize = 15, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8, Parent = sidebarSearch })
+	local searchText = Create("TextLabel", { Name = "SearchText", Size = UDim2.new(1, -46, 1, 0), Position = UDim2.new(0, 32, 0, 0), BackgroundTransparency = 1, Text = "Search anything...", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = sidebarSearch })
+
+	local sidebarTopDivider = Create("Frame", { Name = "SidebarTopDivider", Size = UDim2.new(1, -28, 0, 1), Position = UDim2.new(0, 14, 0, 106), BackgroundColor3 = THEME.BORDER, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 8, Parent = sidebar })
+	Create("UIGradient", { Name = "SideFade", Rotation = 0, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.45), NumberSequenceKeypoint.new(0.50, 0.12), NumberSequenceKeypoint.new(0.88, 0.45), NumberSequenceKeypoint.new(1, 1) }), Parent = sidebarTopDivider })
+	local navLabel = Create("TextLabel", { Name = "SectionLabel", Size = UDim2.new(1, -28, 0, 19), Position = UDim2.new(0, 14, 0, 122), BackgroundTransparency = 1, Text = "MAIN", Font = FONT_SEMI, TextSize = 11, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = sidebar })
+	local sidebarSectionDivider = Create("Frame", { Name = "SidebarSectionDivider", Size = UDim2.new(1, -28, 0, 1), Position = UDim2.new(0, 14, 0, 0), BackgroundColor3 = THEME.BORDER, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 8, Parent = sidebar })
+	Create("UIGradient", { Name = "SideFade", Rotation = 0, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.45), NumberSequenceKeypoint.new(0.50, 0.12), NumberSequenceKeypoint.new(0.88, 0.45), NumberSequenceKeypoint.new(1, 1) }), Parent = sidebarSectionDivider })
+
+	local contentArea = Create("Frame", { Name = "ContentArea", Size = UDim2.new(1, -SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, SIDEBAR_EXPANDED, 0, NEW_TOPBAR_H), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 6, Parent = root })
+	local topBar = Create("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, TOPBAR_H), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 7, Parent = contentArea })
+	Corner(CORNER_MD, topBar)
+	Create("Frame", { Name = "TopBarTopLeftFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
+	Create("Frame", { Name = "TopBarBottomLeftFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(0, 0, 1, -(CORNER_MD + 4)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
+	Create("Frame", { Name = "TopBarTopRightFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(1, -(CORNER_MD + 4), 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
+	Create("Frame", { Name = "TopBarBottomRightFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(1, -(CORNER_MD + 4), 1, -(CORNER_MD + 4)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
+
+	local topLeft = Create("Frame", { Name = "TopLeft", Size = UDim2.new(0.45, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 8, Parent = topBar })
+	Padding(topLeft, 6, 0, 0, 10)
+	local pageTitle = Create("TextLabel", { Name = "PageTitle", Size = UDim2.new(1, 0, 0, 22), BackgroundTransparency = 1, Text = "Dashboard", Font = FONT_BOLD, TextSize = 18, TextColor3 = THEME.TEXT_ACCENT, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 9, Parent = topLeft })
+	local breadcrumbFrame = Create("Frame", { Name = "BreadcrumbFrame", Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 0, 26), BackgroundTransparency = 1, ZIndex = 9, Parent = topLeft })
+	ListLayout(breadcrumbFrame, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 4)
+	Create("ImageLabel", { Size = UDim2.new(0, 12, 0, 12), BackgroundTransparency = 1, Image = logo, ScaleType = Enum.ScaleType.Fit, ImageColor3 = THEME.TEXT_MUTED, ZIndex = 10, LayoutOrder = 1, Parent = breadcrumbFrame })
+	Create("TextLabel", { Size = UDim2.new(0, 8, 0, 14), BackgroundTransparency = 1, Text = "/", Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 2, Parent = breadcrumbFrame })
+	local breadcrumbTabLabel = Create("TextLabel", { Size = UDim2.new(0, 0, 0, 14), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "Dashboard", Font = FONT_SEMI, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 3, Parent = breadcrumbFrame })
+	Create("TextLabel", { Size = UDim2.new(0, 8, 0, 14), BackgroundTransparency = 1, Text = "/", Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 4, Parent = breadcrumbFrame })
+	local breadcrumbSectionLabel = Create("TextLabel", { Size = UDim2.new(0, 0, 0, 14), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "Section", Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 5, Parent = breadcrumbFrame })
+
+	local topRight = Create("Frame", { Name = "TopRight", Size = UDim2.new(0.55, -12, 1, 0), Position = UDim2.new(0.45, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 8, Parent = topBar })
+	Padding(topRight, 0, 5, 0, 0)
+	ListLayout(topRight, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, 0)
+	local displayNick = LocalPlayer.DisplayName or LocalPlayer.Name
+	local notificationFrame = Create("Frame", { Name = "Notification", Size = UDim2.new(0, 22, 0, 30), BackgroundTransparency = 1, ZIndex = 9, LayoutOrder = 1, Parent = topRight })
+	Create("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🔔", Font = FONT_REG, TextSize = 15, TextColor3 = THEME.TEXT_SECONDARY, ZIndex = 10, Parent = notificationFrame })
+	local notifDot = Create("Frame", { Size = UDim2.new(0, 7, 0, 7), Position = UDim2.new(1, -4, 0, 1), BackgroundColor3 = Color3.fromRGB(239, 68, 68), BorderSizePixel = 0, ZIndex = 11, Parent = notificationFrame })
+	Corner(4, notifDot)
+	Create("TextLabel", { Name = "NotificationSeparator", Size = UDim2.new(0, 14, 0, 30), BackgroundTransparency = 1, Text = "/", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0.22, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 2, Parent = topRight })
+	local userChip = Create("Frame", { Name = "UserChip", Size = UDim2.new(0, 0, 0, 34), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 9, LayoutOrder = 3, Parent = topRight })
+	ListLayout(userChip, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
+	local userTextStack = Create("Frame", { Name = "UserTextStack", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 10, LayoutOrder = 1, Parent = userChip })
+	ListLayout(userTextStack, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, -1)
+	Create("TextLabel", { Name = "VisualNick", Size = UDim2.new(0, 0, 0, 17), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = displayNick, Font = FONT_SEMI, TextSize = 12, TextColor3 = THEME.TEXT_PRIMARY, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
+	Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 14), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 11, LayoutOrder = 2, Parent = userTextStack })
+	local avatarCircle = Create("Frame", { Name = "Avatar", Size = UDim2.new(0, 32, 0, 32), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ZIndex = 10, LayoutOrder = 2, Parent = userChip })
+	Corner(16, avatarCircle)
+	Create("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = string.sub(displayNick, 1, 1), Font = FONT_BOLD, TextSize = 14, TextColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 11, Parent = avatarCircle })
+
+	local self = setmetatable({
+		Title = title,
+		ScreenGui = screenGui,
+		Window = root,
+		NewTopBar = newTopBar,
+		Sidebar = sidebar,
+		SidebarTop = sidebarTop,
+		SidebarToggle = sidebarToggle,
+		SidebarDivider = sidebarDivider,
+		LineBelowPageTopBar = lineBelowPageTopBar,
+		ContentArea = contentArea,
+		TopBar = topBar,
+		AppNameLabel = appNameLabel,
+		LogoBox = logoBox,
+		SidebarSearch = sidebarSearch,
+		SidebarSearchStroke = sidebarSearchStroke,
+		SearchIcon = searchIcon,
+		SearchText = searchText,
+		SidebarTopDivider = sidebarTopDivider,
+		SidebarSectionDivider = sidebarSectionDivider,
+		BreadcrumbTabLabel = breadcrumbTabLabel,
+		BreadcrumbSectionLabel = breadcrumbSectionLabel,
+		PageTitle = pageTitle,
+		ToggleIconBar1 = toggleIconBar1,
+		ToggleIconBar2 = toggleIconBar2,
+		ToggleIconBlock = toggleIconBlock,
+		Pages = {},
+		Connections = {},
+		CurrentPage = nil,
+		CurrentTabName = "Dashboard",
+		CurrentSectionName = "Section",
+		SidebarState = "Expanded",
+		SidebarClosed = false,
+		Visible = true,
+		Keybind = keybind,
+	}, Window)
+
+	-- Bind references used by methods
+	self.ToggleIconBar1 = toggleIconBar1
+	self.ToggleIconBar2 = toggleIconBar2
+	self.ToggleIconBlock = toggleIconBlock
+
+	sidebarToggle.MouseButton1Click:Connect(function()
+		self:SetSidebarExpanded(self.SidebarState == "Closed")
+	end)
+
+	-- Window drag
+	local dragging = false
+	local dragStartInput, dragStartMouse, dragStartPosition
+	local function beginDrag(input)
+		dragging = true
+		dragStartInput = input
+		dragStartMouse = input.Position
+		dragStartPosition = root.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+				dragStartInput = nil
+			end
+		end)
+	end
+	local function bindDrag(handle)
+		handle.Active = true
+		handle.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				beginDrag(input)
+			end
+		end)
+	end
+	bindDrag(newTopBar)
+	bindDrag(sidebarTop)
+	table.insert(self.Connections, UserInputService.InputChanged:Connect(function(input)
+		if not dragging or not dragStartMouse or not dragStartPosition then return end
+		local isMouseDrag = dragStartInput and dragStartInput.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement
+		local isTouchDrag = dragStartInput and dragStartInput.UserInputType == Enum.UserInputType.Touch and input.UserInputType == Enum.UserInputType.Touch
+		if not isMouseDrag and not isTouchDrag then return end
+		local delta = input.Position - dragStartMouse
+		root.Position = UDim2.new(dragStartPosition.X.Scale, dragStartPosition.X.Offset + delta.X, dragStartPosition.Y.Scale, dragStartPosition.Y.Offset + delta.Y)
+	end))
+	table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then return end
+		if input.KeyCode == self.Keybind then self:Toggle() end
+	end))
+
+	-- Entrance animation preserved from the current file.
+	local finalSize = root.Size
+	local finalPos = root.Position
+	root.Size = UDim2.new(0.1, 0, 0.1, 0)
+	root.Position = UDim2.new(0.45, 0, 0.45, 0)
+	root.BackgroundTransparency = 1
+	task.defer(function()
+		TweenService:Create(root, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = finalSize,
+			Position = finalPos,
+			BackgroundTransparency = 0,
+		}):Play()
+	end)
+
+	task.spawn(function()
+		while root.Parent do
+			TweenService:Create(logoBox, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { BackgroundColor3 = THEME.ACCENT_BLUE }):Play()
+			task.wait(2)
+			TweenService:Create(logoBox, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { BackgroundColor3 = Color3.fromRGB(62, 24, 116) }):Play()
+			task.wait(2)
+		end
+	end)
+	task.spawn(function()
+		while root.Parent do
+			TweenService:Create(notifDot, TW_MED, { BackgroundTransparency = 0.6 }):Play()
+			task.wait(0.8)
+			TweenService:Create(notifDot, TW_MED, { BackgroundTransparency = 0 }):Play()
+			task.wait(0.8)
+		end
+	end)
+
+	return self
+end
+
+return Library
