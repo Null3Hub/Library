@@ -1210,27 +1210,69 @@ function Window:_SetActivePage(page)
 	self:_UpdateBreadcrumb()
 end
 
-function Window:_ReflowNav()
-	local y = self.SidebarClosed and 112 or 122
-	for index, page in ipairs(self.Pages) do
-		page.Nav.BaseY = y
-		page.Nav.BaseYClosed = y - 19
-		page.Nav.Button.Position = self.SidebarClosed
-			and UDim2.new(0.5, -18, 0, page.Nav.BaseYClosed)
-			or UDim2.new(0, 14, 0, page.Nav.BaseY)
-		page.Nav.Button.Size = self.SidebarClosed and UDim2.new(0, 36, 0, 36) or UDim2.new(1, -28, 0, 34)
-		-- Keep nav icons fixed-size when collapsed. The old code stretched
-		-- the icon to the full 36x36 button, making image icons look huge.
-		if page.Nav.Icon then
-			page.Nav.Icon.Size = self.SidebarClosed and UDim2.new(0, 24, 0, 24) or UDim2.new(0, 20, 0, 20)
-			page.Nav.Icon.Position = self.SidebarClosed and UDim2.new(0.5, -12, 0.5, -12) or UDim2.new(0, 17, 0.5, -10)
+function Window:_ReflowNav(animate)
+	local isClosed = self.SidebarClosed and true or false
+	local y = isClosed and 112 or 122
+	local tweenInfo = animate and TW_SIDEBAR or nil
+
+	local function apply(inst, props)
+		if not inst then return end
+		if tweenInfo then
+			TweenService:Create(inst, tweenInfo, props):Play()
+		else
+			for prop, value in pairs(props) do
+				inst[prop] = value
+			end
 		end
-		y = y + 41
 	end
-	if self.SidebarSectionDivider then
-		local dividerY = y + 5
-		self.SidebarSectionDivider.Position = self.SidebarClosed and UDim2.new(0.5, -17, 0, dividerY) or UDim2.new(0, 14, 0, dividerY)
-		self.SidebarSectionDivider.Size = self.SidebarClosed and UDim2.new(0, 34, 0, 1) or UDim2.new(1, -28, 0, 1)
+
+	for _, item in ipairs(self.SidebarItems or {}) do
+		if item.Type == "Page" and item.Page and item.Page.Nav then
+			local page = item.Page
+			page.Nav.BaseY = y
+			page.Nav.BaseYClosed = y
+
+			apply(page.Nav.Button, {
+				Position = isClosed and UDim2.new(0.5, -18, 0, y) or UDim2.new(0, 14, 0, y),
+				Size = isClosed and UDim2.new(0, 36, 0, 36) or UDim2.new(1, -28, 0, 34),
+			})
+
+			-- Keep nav icons fixed-size when collapsed. Image icons no longer
+			-- stretch to fill the whole selected tab square.
+			apply(page.Nav.Icon, {
+				Size = isClosed and UDim2.new(0, 24, 0, 24) or UDim2.new(0, 20, 0, 20),
+				Position = isClosed and UDim2.new(0.5, -12, 0.5, -12) or UDim2.new(0, 17, 0.5, -10),
+			})
+
+			apply(page.Nav.Text, {
+				TextTransparency = isClosed and 1 or 0,
+			})
+
+			y = y + 41
+		elseif item.Type == "PageSection" and item.Label then
+			-- PageSection is an expanded-sidebar label only.
+			item.Label.Visible = not isClosed
+			if not isClosed then
+				apply(item.Label, {
+					Position = UDim2.new(0, 14, 0, y),
+					Size = UDim2.new(1, -28, 0, 19),
+					TextTransparency = 0,
+				})
+				y = y + 28
+			else
+				item.Label.TextTransparency = 1
+			end
+		elseif item.Type == "Divider" and item.Frame then
+			-- Dividers stay visible in both modes. When closed they become
+			-- compact centered separators instead of disappearing.
+			item.Frame.Visible = true
+			apply(item.Frame, {
+				Position = isClosed and UDim2.new(0.5, -17, 0, y + 6) or UDim2.new(0, 14, 0, y + 7),
+				Size = isClosed and UDim2.new(0, 34, 0, 1) or UDim2.new(1, -28, 0, 1),
+				BackgroundTransparency = 0.35,
+			})
+			y = y + 18
+		end
 	end
 end
 
@@ -1278,27 +1320,7 @@ function Window:SetSidebarExpanded(expanded)
 		BackgroundTransparency = 0.35,
 	}):Play()
 
-	for _, page in ipairs(self.Pages) do
-		TweenService:Create(page.Nav.Button, TW_SIDEBAR, {
-			Size = isExpanded and UDim2.new(1, -28, 0, 34) or UDim2.new(0, 36, 0, 36),
-			Position = isExpanded and UDim2.new(0, 14, 0, page.Nav.BaseY) or UDim2.new(0.5, -18, 0, page.Nav.BaseYClosed),
-		}):Play()
-		TweenService:Create(page.Nav.Text, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
-		TweenService:Create(page.Nav.Icon, TW_SIDEBAR, {
-			-- Fixed pixel sizes preserve the expanded look and prevent
-			-- collapsed image icons from filling the entire nav button.
-			Size = isExpanded and UDim2.new(0, 20, 0, 20) or UDim2.new(0, 24, 0, 24),
-			Position = isExpanded and UDim2.new(0, 17, 0.5, -10) or UDim2.new(0.5, -12, 0.5, -12),
-		}):Play()
-	end
-	if self.SidebarSectionDivider then
-		TweenService:Create(self.SidebarSectionDivider, TW_SIDEBAR, {
-			Size = isExpanded and UDim2.new(1, -28, 0, 1) or UDim2.new(0, 34, 0, 1),
-			Position = isExpanded and UDim2.new(0, 14, 0, self.SidebarSectionDivider.Position.Y.Offset) or UDim2.new(0.5, -17, 0, self.SidebarSectionDivider.Position.Y.Offset),
-			BackgroundTransparency = 0.35,
-		}):Play()
-	end
-	self:_ReflowNav()
+	self:_ReflowNav(true)
 end
 
 function Window:UpdateContentCanvas()
@@ -1314,6 +1336,114 @@ function Window:UpdateContentCanvas()
 	page.Scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
 	page._UpdatingCanvas = false
 end
+
+function Window:AddPageSection(args)
+	-- Optional sidebar label shown only when the sidebar is expanded.
+	-- Usage:
+	--   Window:AddPageSection({ Name = "MAIN" })
+	--   Window:AddPageSection("MAIN")
+	local sectionArgs = type(args) == "table" and args or nil
+	local sectionName = sectionArgs and (sectionArgs.Name or sectionArgs.Title or sectionArgs.Text or sectionArgs.name or sectionArgs.title or sectionArgs.text) or args
+	sectionName = tostring(sectionName or "Section")
+
+	local label = Create("TextLabel", {
+		Name = "PageSection_" .. sectionName,
+		Size = UDim2.new(1, -28, 0, 19),
+		Position = UDim2.new(0, 14, 0, 0),
+		BackgroundTransparency = 1,
+		Text = sectionName,
+		Font = FONT_SEMI,
+		TextSize = 11,
+		TextColor3 = THEME.TEXT_MUTED,
+		TextTransparency = self.SidebarClosed and 1 or 0,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Visible = not self.SidebarClosed,
+		ZIndex = 8,
+		Parent = self.Sidebar,
+	})
+
+	local item = {
+		Type = "PageSection",
+		Name = sectionName,
+		Label = label,
+	}
+	table.insert(self.SidebarItems, item)
+	self:_ReflowNav()
+
+	return {
+		Label = label,
+		SetName = function(_, newName)
+			sectionName = tostring(newName or "Section")
+			item.Name = sectionName
+			label.Name = "PageSection_" .. sectionName
+			label.Text = sectionName
+		end,
+		Destroy = function()
+			for index, sidebarItem in ipairs(self.SidebarItems) do
+				if sidebarItem == item then
+					table.remove(self.SidebarItems, index)
+					break
+				end
+			end
+			label:Destroy()
+			self:_ReflowNav()
+		end,
+	}
+end
+
+function Window:AddSideBarDivider()
+	-- Optional sidebar divider. It is full-width in expanded mode and
+	-- becomes a compact centered divider in closed mode.
+	local divider = Create("Frame", {
+		Name = "SidebarCustomDivider",
+		Size = self.SidebarClosed and UDim2.new(0, 34, 0, 1) or UDim2.new(1, -28, 0, 1),
+		Position = UDim2.new(0, 14, 0, 0),
+		BackgroundColor3 = THEME.BORDER,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		Visible = true,
+		ZIndex = 8,
+		Parent = self.Sidebar,
+	})
+	Create("UIGradient", {
+		Name = "SideFade",
+		Rotation = 0,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.12, 0.45),
+			NumberSequenceKeypoint.new(0.50, 0.12),
+			NumberSequenceKeypoint.new(0.88, 0.45),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = divider,
+	})
+
+	local item = {
+		Type = "Divider",
+		Frame = divider,
+	}
+	table.insert(self.SidebarItems, item)
+	self:_ReflowNav()
+
+	return {
+		Divider = divider,
+		Destroy = function()
+			for index, sidebarItem in ipairs(self.SidebarItems) do
+				if sidebarItem == item then
+					table.remove(self.SidebarItems, index)
+					break
+				end
+			end
+			divider:Destroy()
+			self:_ReflowNav()
+		end,
+	}
+end
+
+
+Window.AddSidebarDivider = Window.AddSideBarDivider
+Window.AddSidebarSectionDivider = Window.AddSideBarDivider
 
 function Window:AddPage(name, icon)
 	-- Old API is still supported:
@@ -1479,6 +1609,7 @@ function Window:AddPage(name, icon)
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page:UpdateCanvas() end)
 	scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() page:UpdateCanvas() end)
 	table.insert(self.Pages, page)
+	table.insert(self.SidebarItems, { Type = "Page", Page = page })
 	self:_ReflowNav()
 	if not self.CurrentPage then self:_SetActivePage(page) end
 	task.defer(function() page:UpdateCanvas() end)
@@ -1641,9 +1772,6 @@ function Library.new(config)
 
 	local sidebarTopDivider = Create("Frame", { Name = "SidebarTopDivider", Size = UDim2.new(1, -28, 0, 1), Position = UDim2.new(0, 14, 0, 106), BackgroundColor3 = THEME.BORDER, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 8, Parent = sidebar })
 	Create("UIGradient", { Name = "SideFade", Rotation = 0, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.45), NumberSequenceKeypoint.new(0.50, 0.12), NumberSequenceKeypoint.new(0.88, 0.45), NumberSequenceKeypoint.new(1, 1) }), Parent = sidebarTopDivider })
-	local navLabel = Create("TextLabel", { Name = "SectionLabel", Size = UDim2.new(1, -28, 0, 19), Position = UDim2.new(0, 14, 0, 122), BackgroundTransparency = 1, Text = "MAIN", Font = FONT_SEMI, TextSize = 11, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = sidebar })
-	local sidebarSectionDivider = Create("Frame", { Name = "SidebarSectionDivider", Size = UDim2.new(1, -28, 0, 1), Position = UDim2.new(0, 14, 0, 0), BackgroundColor3 = THEME.BORDER, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 8, Parent = sidebar })
-	Create("UIGradient", { Name = "SideFade", Rotation = 0, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.45), NumberSequenceKeypoint.new(0.50, 0.12), NumberSequenceKeypoint.new(0.88, 0.45), NumberSequenceKeypoint.new(1, 1) }), Parent = sidebarSectionDivider })
 
 	local contentArea = Create("Frame", { Name = "ContentArea", Size = UDim2.new(1, -SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, SIDEBAR_EXPANDED, 0, NEW_TOPBAR_H), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 6, Parent = root })
 	local topBar = Create("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, TOPBAR_H), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 7, Parent = contentArea })
@@ -1702,7 +1830,6 @@ function Library.new(config)
 		SearchIcon = searchIcon,
 		SearchText = searchText,
 		SidebarTopDivider = sidebarTopDivider,
-		SidebarSectionDivider = sidebarSectionDivider,
 		BreadcrumbTabLabel = breadcrumbTabLabel,
 		BreadcrumbSectionLabel = breadcrumbSectionLabel,
 		PageTitle = pageTitle,
@@ -1710,6 +1837,7 @@ function Library.new(config)
 		ToggleIconBar2 = toggleIconBar2,
 		ToggleIconBlock = toggleIconBlock,
 		Pages = {},
+		SidebarItems = {},
 		Connections = {},
 		CurrentPage = nil,
 		CurrentTabName = "Dashboard",
