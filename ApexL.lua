@@ -1123,6 +1123,12 @@ function Window:_ReflowNav()
 			and UDim2.new(0.5, -18, 0, page.Nav.BaseYClosed)
 			or UDim2.new(0, 14, 0, page.Nav.BaseY)
 		page.Nav.Button.Size = self.SidebarClosed and UDim2.new(0, 36, 0, 36) or UDim2.new(1, -28, 0, 34)
+		-- Keep nav icons fixed-size when collapsed. The old code stretched
+		-- the icon to the full 36x36 button, making image icons look huge.
+		if page.Nav.Icon then
+			page.Nav.Icon.Size = self.SidebarClosed and UDim2.new(0, 24, 0, 24) or UDim2.new(0, 20, 0, 20)
+			page.Nav.Icon.Position = self.SidebarClosed and UDim2.new(0.5, -12, 0.5, -12) or UDim2.new(0, 17, 0.5, -10)
+		end
 		y = y + 41
 	end
 	if self.SidebarSectionDivider then
@@ -1183,8 +1189,10 @@ function Window:SetSidebarExpanded(expanded)
 		}):Play()
 		TweenService:Create(page.Nav.Text, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
 		TweenService:Create(page.Nav.Icon, TW_SIDEBAR, {
-			Size = isExpanded and UDim2.new(0, 20, 1, 0) or UDim2.new(1, 0, 1, 0),
-			Position = isExpanded and UDim2.new(0, 16, 0, 0) or UDim2.new(0, 0, 0, 0),
+			-- Fixed pixel sizes preserve the expanded look and prevent
+			-- collapsed image icons from filling the entire nav button.
+			Size = isExpanded and UDim2.new(0, 20, 0, 20) or UDim2.new(0, 24, 0, 24),
+			Position = isExpanded and UDim2.new(0, 17, 0.5, -10) or UDim2.new(0.5, -12, 0.5, -12),
 		}):Play()
 	end
 	if self.SidebarSectionDivider then
@@ -1212,8 +1220,17 @@ function Window:UpdateContentCanvas()
 end
 
 function Window:AddPage(name, icon)
-	local pageName = tostring(name or "Page")
-	local pageIcon = tostring(icon or "⊞")
+	-- Old API is still supported:
+	--   Window:AddPage("Home", "rbxassetid://...")
+	-- New table API:
+	--   Window:AddPage({ Name = "Home", Icon = "rbxassetid://..." })
+	-- Also accepts Icone as an alias, as requested.
+	local pageArgs = type(name) == "table" and name or nil
+	local pageName = pageArgs and (pageArgs.Name or pageArgs.Title or pageArgs.name or pageArgs.title) or name
+	local pageIcon = pageArgs and (pageArgs.Icon or pageArgs.Icone or pageArgs.IconId or pageArgs.Image or pageArgs.icon or pageArgs.icone or pageArgs.image) or icon
+
+	pageName = tostring(pageName or "Page")
+	pageIcon = tostring(pageIcon or "⊞")
 	local pageViewport = Create("Frame", {
 		Name = pageName .. "Page",
 		Size = UDim2.new(1, 0, 1, -TOPBAR_H),
@@ -1279,8 +1296,8 @@ function Window:AddPage(name, icon)
 	if iconIsImage then
 		iconText = Create("ImageLabel", {
 			Name = "Icon",
-			Size = UDim2.new(0, 18, 0, 18),
-			Position = UDim2.new(0, 17, 0.5, -9),
+			Size = self.SidebarClosed and UDim2.new(0, 24, 0, 24) or UDim2.new(0, 20, 0, 20),
+			Position = self.SidebarClosed and UDim2.new(0.5, -12, 0.5, -12) or UDim2.new(0, 17, 0.5, -10),
 			BackgroundTransparency = 1,
 			Image = pageIcon,
 			ImageColor3 = THEME.TEXT_SECONDARY,
@@ -1291,8 +1308,8 @@ function Window:AddPage(name, icon)
 	else
 		iconText = Create("TextLabel", {
 			Name = "Icon",
-			Size = UDim2.new(0, 20, 1, 0),
-			Position = UDim2.new(0, 16, 0, 0),
+			Size = self.SidebarClosed and UDim2.new(0, 24, 0, 24) or UDim2.new(0, 20, 0, 20),
+			Position = self.SidebarClosed and UDim2.new(0.5, -12, 0.5, -12) or UDim2.new(0, 17, 0.5, -10),
 			BackgroundTransparency = 1,
 			Text = pageIcon,
 			Font = FONT_REG,
