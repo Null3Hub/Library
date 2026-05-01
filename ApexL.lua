@@ -1,11 +1,23 @@
 --[[
 	Apex UI Library
-	Converted from ApexDashboard into a reusable library.
+	Converted from ApexDashboard_v9_3_6_main_label_spacing_fix.lua into a reusable library.
+	Visual style was preserved: dark Apex window, compact top bar, macOS dots,
+	collapsible sidebar, breadcrumbs, gradient strokes, rounded section cards and
+	Luna-style controls.
+
+	Example:
+	local ui = loadstring(game:HttpGet("URL/Library.lua"))()
+	local window = ui.new({ Title = "My Dashboard" })
+	local page = window:AddPage("Home", "rbxassetid://123456")
+	local section = page:AddSection("General")
+	section:AddLabel("Welcome to your dashboard!")
+	section:AddToggle("Enable feature", false, function(v) print(v) end)
 --]]
 
 local Library = {}
 Library.__index = Library
 Library.Version = "ApexLibrary_v1.0.0"
+Library.IconsType = "lucide"
 
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
@@ -173,6 +185,83 @@ local function SafeCallback(callback, ...)
 	end
 end
 
+-- Native icon resolver powered by Footagesus/Icons Main-v2.
+-- Supports raw image ids and named icon keys:
+--   Icone = "rbxassetid://123"
+--   Icone = "house"
+--   Icone = "lucide:house"
+--   Icone = "geist:accessibility-unread"
+--   Icone = "sfsymbols:HouseFill"
+local ICONS_V2_URL = "https://raw.githubusercontent.com/Footagesus/Icons/58f2a4994f75d035472bdeb0ca276bd5bafc3282/Main-v2.lua"
+local IconsV2
+local IconsV2Loaded = false
+local DefaultIconsType = "lucide"
+
+local function IsImageSource(value)
+	if type(value) ~= "string" then return false end
+	return string.find(value, "rbxassetid://", 1, true) ~= nil
+		or string.find(value, "rbxthumb://", 1, true) ~= nil
+		or string.find(value, "http://", 1, true) ~= nil
+		or string.find(value, "https://", 1, true) ~= nil
+end
+
+local function LoadIconsV2()
+	if IconsV2Loaded then return IconsV2 end
+	IconsV2Loaded = true
+
+	local ok, result = pcall(function()
+		local source
+		if game.HttpGetAsync then
+			source = game:HttpGetAsync(ICONS_V2_URL)
+		else
+			source = game:HttpGet(ICONS_V2_URL)
+		end
+		local loader = loadstring(source)
+		return loader and loader()
+	end)
+
+	if ok and type(result) == "table" then
+		IconsV2 = result
+		if type(IconsV2.SetIconsType) == "function" then
+			pcall(IconsV2.SetIconsType, DefaultIconsType)
+		end
+	else
+		warn("[ApexLibrary] Failed to load IconsV2:", result)
+	end
+
+	return IconsV2
+end
+
+local function ResolveIcon(icon, iconType)
+	if icon == nil then
+		return "⊞", false
+	end
+
+	local raw = tostring(icon)
+	if raw == "" then
+		return "⊞", false
+	end
+
+	if IsImageSource(raw) then
+		return raw, true
+	end
+
+	local icons = LoadIconsV2()
+	if icons and type(icons.GetIcon) == "function" then
+		local query = raw
+		if iconType and iconType ~= "" and not string.find(raw, ":", 1, true) then
+			query = tostring(iconType) .. ":" .. raw
+		end
+
+		local ok, image = pcall(icons.GetIcon, query)
+		if ok and type(image) == "string" and image ~= "" then
+			return image, true
+		end
+	end
+
+	return raw, false
+end
+
 local function GetKeyCode(value, fallback)
 	fallback = fallback or Enum.KeyCode.LeftAlt
 	if typeof(value) == "EnumItem" then return value end
@@ -188,6 +277,24 @@ Page.__index = Page
 
 local Window = {}
 Window.__index = Window
+
+function Library.SetIconsType(iconType)
+	DefaultIconsType = tostring(iconType or "lucide")
+	Library.IconsType = DefaultIconsType
+	local icons = LoadIconsV2()
+	if icons and type(icons.SetIconsType) == "function" then
+		pcall(icons.SetIconsType, DefaultIconsType)
+	end
+end
+
+function Library.GetIcon(icon, iconType)
+	local image = ResolveIcon(icon, iconType or Library.IconsType)
+	return image
+end
+
+function Library.GetIconsModule()
+	return LoadIconsV2()
+end
 
 function Section:_UpdateSize()
 	local h = self.ElementsLayout.AbsoluteContentSize.Y
@@ -1212,14 +1319,23 @@ function Window:AddPage(name, icon)
 	-- Old API is still supported:
 	--   Window:AddPage("Home", "rbxassetid://...")
 	-- New table API:
-	--   Window:AddPage({ Name = "Home", Icon = "rbxassetid://..." })
-	-- Also accepts Icone as an alias, as requested.
+	--   Window:AddPage({ Name = "Home", Icone = "house" })
+	-- Native IconsV2 support:
+	--   Icone = "house"
+	--   Icone = "lucide:house"
+	--   Icone = "geist:accessibility-unread"
+	--   Icone = "solar:Home2Bold"
+	--   Icone = "sfsymbols:HouseFill"
+	-- Also accepts Icon and Icone aliases.
 	local pageArgs = type(name) == "table" and name or nil
 	local pageName = pageArgs and (pageArgs.Name or pageArgs.Title or pageArgs.name or pageArgs.title) or name
 	local pageIcon = pageArgs and (pageArgs.Icon or pageArgs.Icone or pageArgs.IconId or pageArgs.Image or pageArgs.icon or pageArgs.icone or pageArgs.image) or icon
+	local pageIconType = pageArgs and (pageArgs.IconType or pageArgs.IconsType or pageArgs.Type or pageArgs.iconType or pageArgs.iconsType or pageArgs.type) or nil
+	local pageIconColor = pageArgs and (pageArgs.IconColor or pageArgs.Color or pageArgs.iconColor or pageArgs.color) or nil
 
 	pageName = tostring(pageName or "Page")
-	pageIcon = tostring(pageIcon or "⊞")
+	local resolvedIcon, iconIsImage = ResolveIcon(pageIcon, pageIconType or self.IconsType or Library.IconsType)
+	pageIcon = resolvedIcon
 	local pageViewport = Create("Frame", {
 		Name = pageName .. "Page",
 		Size = UDim2.new(1, 0, 1, -TOPBAR_H),
@@ -1280,7 +1396,6 @@ function Window:AddPage(name, icon)
 		Parent = navButton,
 	})
 	Corner(2, activeBar)
-	local iconIsImage = string.find(pageIcon, "rbxassetid://", 1, true) ~= nil or string.find(pageIcon, "http", 1, true) ~= nil
 	local iconText
 	if iconIsImage then
 		iconText = Create("ImageLabel", {
@@ -1289,7 +1404,7 @@ function Window:AddPage(name, icon)
 			Position = self.SidebarClosed and UDim2.new(0.5, -12, 0.5, -12) or UDim2.new(0, 17, 0.5, -10),
 			BackgroundTransparency = 1,
 			Image = pageIcon,
-			ImageColor3 = THEME.TEXT_SECONDARY,
+			ImageColor3 = pageIconColor or THEME.TEXT_SECONDARY,
 			ScaleType = Enum.ScaleType.Fit,
 			ZIndex = 9,
 			Parent = navButton,
@@ -1303,7 +1418,7 @@ function Window:AddPage(name, icon)
 			Text = pageIcon,
 			Font = FONT_REG,
 			TextSize = 13,
-			TextColor3 = THEME.TEXT_SECONDARY,
+			TextColor3 = pageIconColor or THEME.TEXT_SECONDARY,
 			TextTransparency = 0,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center,
@@ -1391,6 +1506,9 @@ function Library.new(config)
 	local title = tostring(config.Title or config.Name or "Apex")
 	local logo = tostring(config.Logo or LOGO_ASSET)
 	local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
+	local iconsType = tostring(config.IconsType or config.IconType or Library.IconsType or "lucide")
+	DefaultIconsType = iconsType
+	Library.IconsType = iconsType
 
 	local screenGui = Create("ScreenGui", {
 		Name = config.GuiName or "ApexUI",
@@ -1600,6 +1718,7 @@ function Library.new(config)
 		SidebarClosed = false,
 		Visible = true,
 		Keybind = keybind,
+		IconsType = iconsType,
 	}, Window)
 
 	-- Bind references used by methods
