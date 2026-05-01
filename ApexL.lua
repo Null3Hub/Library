@@ -946,11 +946,18 @@ function Section:AddKeybind(text, default, callback, desc)
 end
 
 function Page:UpdateCanvas()
-	local contentHeight = self.Layout.AbsoluteContentSize.Y + self.Padding.PaddingTop.Offset + self.Padding.PaddingBottom.Offset
-	self.Scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-	if self.Window and self.Window.UpdateContentCanvas then
-		self.Window:UpdateContentCanvas()
+	-- Only update this page scroll canvas.
+	-- Do NOT call Window:UpdateContentCanvas() from here, because Window:UpdateContentCanvas()
+	-- also updates the current page and that creates Page -> Window -> Page recursion.
+	if self._UpdatingCanvas then return end
+	self._UpdatingCanvas = true
+
+	if self.Scroll and self.Layout and self.Padding then
+		local contentHeight = self.Layout.AbsoluteContentSize.Y + self.Padding.PaddingTop.Offset + self.Padding.PaddingBottom.Offset
+		self.Scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
 	end
+
+	self._UpdatingCanvas = false
 end
 
 function Page:AddSection(name, subtitle)
@@ -1191,7 +1198,17 @@ function Window:SetSidebarExpanded(expanded)
 end
 
 function Window:UpdateContentCanvas()
-	if self.CurrentPage then self.CurrentPage:UpdateCanvas() end
+	-- Safe public refresh helper.
+	-- This performs the same canvas calculation directly instead of calling
+	-- Page:UpdateCanvas(), preventing recursive stack overflow.
+	local page = self.CurrentPage
+	if not page or not page.Scroll or not page.Layout or not page.Padding then return end
+	if page._UpdatingCanvas then return end
+
+	page._UpdatingCanvas = true
+	local contentHeight = page.Layout.AbsoluteContentSize.Y + page.Padding.PaddingTop.Offset + page.Padding.PaddingBottom.Offset
+	page.Scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+	page._UpdatingCanvas = false
 end
 
 function Window:AddPage(name, icon)
