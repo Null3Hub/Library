@@ -1719,7 +1719,7 @@ function Library.new(config)
 		Size = UDim2.new(0, 18, 0, 18),
 		Position = UDim2.new(0.5, -9, 0.5, -9),
 		BackgroundTransparency = 1,
-		Image = ResolveIcon("solar:minimize-square-3-linear"),
+		Image = ResolveIcon("solar:sidebar-minimalistic-linear"),
 		ImageColor3 = THEME.TEXT_MUTED,
 		ImageTransparency = 0,
 		ScaleType = Enum.ScaleType.Fit,
