@@ -1757,7 +1757,7 @@ function Library.new(config)
 	Create("Frame", { Name = "NTBBottomLeftFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(0, 0, 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 	Create("Frame", { Name = "NTBBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 
-	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 22), Position = UDim2.new(0, 86, 0.5, -11), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
+	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 22), Position = UDim2.new(0, 83, 0.5, -11), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
 	local sidebarToggleIcon = Create("ImageLabel", {
 		Name = "SidebarToggleIcon",
 		Size = UDim2.new(0, 18, 0, 18),
