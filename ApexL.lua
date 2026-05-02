@@ -1309,9 +1309,9 @@ function Window:SetSidebarExpanded(expanded)
 	}):Play()
 	TweenService:Create(self.SidebarSearchStroke, TW_SIDEBAR, { Transparency = isExpanded and 0 or 0.18 }):Play()
 	TweenService:Create(self.SearchIcon, TW_SIDEBAR, {
-		Size = isExpanded and UDim2.new(0, 16, 1, 0) or UDim2.fromScale(1, 1),
-		Position = isExpanded and UDim2.new(0, 10, 0, 0) or UDim2.new(0, 0, 0, 0),
-		TextTransparency = 0,
+		Size = isExpanded and UDim2.new(0, 16, 0, 16) or UDim2.new(0, 18, 0, 18),
+		Position = isExpanded and UDim2.new(0, 10, 0.5, -8) or UDim2.new(0.5, -9, 0.5, -9),
+		ImageTransparency = 0,
 	}):Play()
 	TweenService:Create(self.SearchText, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
 	TweenService:Create(self.SidebarTopDivider, TW_SIDEBAR, {
@@ -1714,22 +1714,24 @@ function Library.new(config)
 	Create("Frame", { Name = "NTBBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 
 	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 22), Position = UDim2.new(0, 14, 0.5, -11), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
-	local toggleIconBar1 = Create("Frame", { Name = "Bar1", Size = UDim2.new(0, 3, 0.7, 0), Position = UDim2.new(0, 4, 0.15, 0), BackgroundColor3 = THEME.TEXT_MUTED, BorderSizePixel = 0, ZIndex = 13, Parent = sidebarToggle })
-	Corner(1, toggleIconBar1)
-	local toggleIconBar2 = Create("Frame", { Name = "Bar2", Size = UDim2.new(0, 3, 0.7, 0), Position = UDim2.new(0, 10, 0.15, 0), BackgroundColor3 = THEME.TEXT_MUTED, BorderSizePixel = 0, ZIndex = 13, Parent = sidebarToggle })
-	Corner(1, toggleIconBar2)
-	local toggleIconBlock = Create("Frame", { Name = "Block", Size = UDim2.new(0, 7, 0.7, 0), Position = UDim2.new(0, 17, 0.15, 0), BackgroundColor3 = THEME.TEXT_MUTED, BorderSizePixel = 0, ZIndex = 13, Parent = sidebarToggle })
-	Corner(1, toggleIconBlock)
+	local sidebarToggleIcon = Create("ImageLabel", {
+		Name = "SidebarToggleIcon",
+		Size = UDim2.new(0, 18, 0, 18),
+		Position = UDim2.new(0.5, -9, 0.5, -9),
+		BackgroundTransparency = 1,
+		Image = ResolveIcon("solar:minimize-square-3-linear"),
+		ImageColor3 = THEME.TEXT_MUTED,
+		ImageTransparency = 0,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 13,
+		Parent = sidebarToggle,
+	})
 
 	sidebarToggle.MouseEnter:Connect(function()
-		TweenService:Create(toggleIconBar1, TW_FAST, { BackgroundColor3 = THEME.TEXT_PRIMARY }):Play()
-		TweenService:Create(toggleIconBar2, TW_FAST, { BackgroundColor3 = THEME.TEXT_PRIMARY }):Play()
-		TweenService:Create(toggleIconBlock, TW_FAST, { BackgroundColor3 = THEME.TEXT_PRIMARY }):Play()
+		TweenService:Create(sidebarToggleIcon, TW_FAST, { ImageColor3 = THEME.TEXT_PRIMARY }):Play()
 	end)
 	sidebarToggle.MouseLeave:Connect(function()
-		TweenService:Create(toggleIconBar1, TW_FAST, { BackgroundColor3 = THEME.TEXT_MUTED }):Play()
-		TweenService:Create(toggleIconBar2, TW_FAST, { BackgroundColor3 = THEME.TEXT_MUTED }):Play()
-		TweenService:Create(toggleIconBlock, TW_FAST, { BackgroundColor3 = THEME.TEXT_MUTED }):Play()
+		TweenService:Create(sidebarToggleIcon, TW_FAST, { ImageColor3 = THEME.TEXT_MUTED }):Play()
 	end)
 
 	local dotHolder = Create("Frame", { Name = "DotHolder", Size = UDim2.new(0, 68, 1, 0), Position = UDim2.new(1, -66, 0, 0), BackgroundTransparency = 1, ZIndex = 12, Parent = newTopBar })
@@ -1767,7 +1769,18 @@ function Library.new(config)
 	local sidebarSearch = Create("Frame", { Name = "SidebarSearch", Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 62), BackgroundColor3 = THEME.BG_SEARCH, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
 	Corner(8, sidebarSearch)
 	local sidebarSearchStroke = Stroke(sidebarSearch, THEME.BORDER, 1)
-	local searchIcon = Create("TextLabel", { Name = "SearchIcon", Size = UDim2.new(0, 16, 1, 0), Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, Text = "⌕", Font = FONT_REG, TextSize = 15, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8, Parent = sidebarSearch })
+	local searchIcon = Create("ImageLabel", {
+		Name = "SearchIcon",
+		Size = UDim2.new(0, 16, 0, 16),
+		Position = UDim2.new(0, 10, 0.5, -8),
+		BackgroundTransparency = 1,
+		Image = ResolveIcon("solar:rounded-magnifer-linear"),
+		ImageColor3 = THEME.TEXT_MUTED,
+		ImageTransparency = 0,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 8,
+		Parent = sidebarSearch,
+	})
 	local searchText = Create("TextLabel", { Name = "SearchText", Size = UDim2.new(1, -46, 1, 0), Position = UDim2.new(0, 32, 0, 0), BackgroundTransparency = 1, Text = "Search anything...", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = sidebarSearch })
 
 	local sidebarTopDivider = Create("Frame", { Name = "SidebarTopDivider", Size = UDim2.new(1, -28, 0, 1), Position = UDim2.new(0, 14, 0, 106), BackgroundColor3 = THEME.BORDER, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 8, Parent = sidebar })
@@ -1819,6 +1832,7 @@ function Library.new(config)
 		Sidebar = sidebar,
 		SidebarTop = sidebarTop,
 		SidebarToggle = sidebarToggle,
+		SidebarToggleIcon = sidebarToggleIcon,
 		SidebarDivider = sidebarDivider,
 		LineBelowPageTopBar = lineBelowPageTopBar,
 		ContentArea = contentArea,
