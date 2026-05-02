@@ -1208,8 +1208,10 @@ function Window:_SetActivePage(page)
 		}):Play()
 		p.Nav.ActiveBar.Visible = selected
 		TweenService:Create(p.Nav.Button, TW_FAST, {
-			BackgroundColor3 = selected and THEME.BG_ACTIVE or THEME.BG_SIDEBAR,
-			BackgroundTransparency = selected and 0 or 1,
+			-- Selected state no longer uses a filled glow/background.
+			-- Only the small accent bar on the left marks the active page.
+			BackgroundColor3 = THEME.BG_SIDEBAR,
+			BackgroundTransparency = 1,
 		}):Play()
 		if p.Nav.IconIsImage then
 			TweenService:Create(p.Nav.Icon, TW_FAST, {
@@ -1230,7 +1232,7 @@ end
 
 function Window:_ReflowNav(animate)
 	local isClosed = self.SidebarClosed and true or false
-	local y = isClosed and 112 or 122
+	local y = 112
 	local tweenInfo = animate and TW_SIDEBAR or nil
 
 	local function apply(inst, props)
@@ -1266,7 +1268,7 @@ function Window:_ReflowNav(animate)
 				TextTransparency = isClosed and 1 or 0,
 			})
 
-			y = y + 41
+			y = y + 40
 		elseif item.Type == "PageSection" and item.Label then
 			-- PageSection is an expanded-sidebar label only.
 			item.Label.Visible = not isClosed
@@ -1276,7 +1278,7 @@ function Window:_ReflowNav(animate)
 					Size = UDim2.new(1, -28, 0, 19),
 					TextTransparency = 0,
 				})
-				y = y + 28
+				y = y + 26
 			else
 				item.Label.TextTransparency = 1
 			end
@@ -1285,11 +1287,11 @@ function Window:_ReflowNav(animate)
 			-- compact centered separators instead of disappearing.
 			item.Frame.Visible = true
 			apply(item.Frame, {
-				Position = isClosed and UDim2.new(0.5, -17, 0, y + 6) or UDim2.new(0, 14, 0, y + 7),
+				Position = isClosed and UDim2.new(0.5, -17, 0, y + 5) or UDim2.new(0, 14, 0, y + 5),
 				Size = isClosed and UDim2.new(0, 34, 0, 1) or UDim2.new(1, -28, 0, 1),
-				BackgroundTransparency = 0.35,
+				BackgroundTransparency = 0.42,
 			})
-			y = y + 18
+			y = y + 17
 		end
 	end
 end
@@ -1341,9 +1343,11 @@ function Window:SetSidebarExpanded(expanded)
 	}):Play()
 
 	TweenService:Create(self.AppNameLabel, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
+	local expandedLogoSize = self.SidebarLogoExpandedSize or 36
+	local closedLogoSize = self.SidebarLogoClosedSize or math.max(expandedLogoSize, 38)
 	TweenService:Create(self.LogoBox, TW_SIDEBAR, {
-		Size = isExpanded and UDim2.new(0, 36, 0, 36) or UDim2.new(0, 38, 0, 38),
-		Position = isExpanded and UDim2.new(0, 14, 0.5, -18) or UDim2.new(0.5, -19, 0.5, -19),
+		Size = isExpanded and UDim2.new(0, expandedLogoSize, 0, expandedLogoSize) or UDim2.new(0, closedLogoSize, 0, closedLogoSize),
+		Position = isExpanded and UDim2.new(0, 14, 0.5, -expandedLogoSize / 2) or UDim2.new(0.5, -closedLogoSize / 2, 0.5, -closedLogoSize / 2),
 	}):Play()
 	TweenService:Create(self.SidebarSearch, TW_SIDEBAR, {
 		Size = isExpanded and UDim2.new(1, -28, 0, 32) or UDim2.new(0, 34, 0, 34),
@@ -1357,11 +1361,6 @@ function Window:SetSidebarExpanded(expanded)
 		ImageTransparency = 0,
 	}):Play()
 	TweenService:Create(self.SearchText, TW_SIDEBAR, { TextTransparency = isExpanded and 0 or 1 }):Play()
-	TweenService:Create(self.SidebarTopDivider, TW_SIDEBAR, {
-		Size = isExpanded and UDim2.new(1, -28, 0, 1) or UDim2.new(0, 34, 0, 1),
-		Position = isExpanded and UDim2.new(0, 14, 0, 106) or UDim2.new(0.5, -17, 0, 104),
-		BackgroundTransparency = 0.35,
-	}):Play()
 
 	self:_ReflowNav(true)
 end
@@ -1680,7 +1679,15 @@ function Library.new(config)
 	local title = tostring(config.Title or config.Name or "Apex")
 	local topBarRightText = tostring(config.TopBarText or "Future text blbablablta test @2026 - Apex L .")
 	local logo = tostring(config.Logo or LOGO_ASSET)
-	local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
+	local sidebarLogoConfig = config.SideBarLogo or config.SidebarLogo or config.LogoConfig or {}
+	if type(sidebarLogoConfig) ~= "table" then sidebarLogoConfig = {} end
+	local sidebarLogoSize = tonumber(sidebarLogoConfig.Size or sidebarLogoConfig.BoxSize) or 36
+	local sidebarLogoClosedSize = tonumber(sidebarLogoConfig.ClosedSize or sidebarLogoConfig.CollapsedSize) or math.max(sidebarLogoSize, 38)
+	local sidebarLogoPadding = tonumber(sidebarLogoConfig.Padding or sidebarLogoConfig.IconPadding) or 5
+	local sidebarLogoCorner = tonumber(sidebarLogoConfig.Corner or sidebarLogoConfig.CornerRadius) or 9
+	local sidebarLogoBgEnabled = sidebarLogoConfig.Background ~= false and sidebarLogoConfig.BackgroundEnabled ~= false and sidebarLogoConfig.ShowBackground ~= false
+	local sidebarLogoBgColor = sidebarLogoConfig.BackgroundColor or sidebarLogoConfig.Color or THEME.ACCENT_BLUE
+		local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
 	local iconsType = tostring(config.IconsType or config.IconType or Library.IconsType or "lucide")
 	DefaultIconsType = iconsType
 	Library.IconsType = iconsType
@@ -1822,10 +1829,29 @@ function Library.new(config)
 	Create("Frame", { Name = "SidebarTopRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
 	Create("Frame", { Name = "SidebarBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
 	local sidebarTop = Create("Frame", { Name = "SidebarTop", Size = UDim2.new(1, 0, 0, 58), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 7, Parent = sidebar })
-	local logoBox = Create("Frame", { Name = "LogoBox", Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0, 14, 0.5, -18), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ZIndex = 8, Parent = sidebarTop })
-	Corner(9, logoBox)
-	Create("ImageLabel", { Name = "Logo", Size = UDim2.new(1, -10, 1, -10), Position = UDim2.new(0, 5, 0, 5), BackgroundTransparency = 1, Image = logo, ScaleType = Enum.ScaleType.Fit, ZIndex = 9, Parent = logoBox })
-	local appNameLabel = Create("TextLabel", { Name = "AppName", Size = UDim2.new(1, -62, 1, 0), Position = UDim2.new(0, 58, 0, 0), BackgroundTransparency = 1, Text = title, Font = FONT_BOLD, TextSize = 16, TextColor3 = THEME.TEXT_ACCENT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 8, Parent = sidebarTop })
+	local logoBox = Create("Frame", {
+		Name = "LogoBox",
+		Size = UDim2.new(0, sidebarLogoSize, 0, sidebarLogoSize),
+		Position = UDim2.new(0, 14, 0.5, -sidebarLogoSize / 2),
+		BackgroundColor3 = sidebarLogoBgColor,
+		BackgroundTransparency = sidebarLogoBgEnabled and 0 or 1,
+		BorderSizePixel = 0,
+		ZIndex = 8,
+		Parent = sidebarTop,
+	})
+	Corner(sidebarLogoCorner, logoBox)
+	Create("ImageLabel", {
+		Name = "Logo",
+		Size = UDim2.new(1, -(sidebarLogoPadding * 2), 1, -(sidebarLogoPadding * 2)),
+		Position = UDim2.new(0, sidebarLogoPadding, 0, sidebarLogoPadding),
+		BackgroundTransparency = 1,
+		Image = logo,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 9,
+		Parent = logoBox,
+	})
+	local appNameOffset = 14 + sidebarLogoSize + 8
+	local appNameLabel = Create("TextLabel", { Name = "AppName", Size = UDim2.new(1, -(appNameOffset + 8), 1, 0), Position = UDim2.new(0, appNameOffset, 0, 0), BackgroundTransparency = 1, Text = title, Font = FONT_BOLD, TextSize = 16, TextColor3 = THEME.TEXT_ACCENT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 8, Parent = sidebarTop })
 
 	local sidebarSearch = Create("Frame", { Name = "SidebarSearch", Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 62), BackgroundColor3 = THEME.BG_SEARCH, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
 	Corner(8, sidebarSearch)
@@ -1844,8 +1870,9 @@ function Library.new(config)
 	})
 	local searchText = Create("TextLabel", { Name = "SearchText", Size = UDim2.new(1, -46, 1, 0), Position = UDim2.new(0, 32, 0, 0), BackgroundTransparency = 1, Text = "Search anything...", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = sidebarSearch })
 
-	local sidebarTopDivider = Create("Frame", { Name = "SidebarTopDivider", Size = UDim2.new(1, -28, 0, 1), Position = UDim2.new(0, 14, 0, 106), BackgroundColor3 = THEME.BORDER, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 8, Parent = sidebar })
-	Create("UIGradient", { Name = "SideFade", Rotation = 0, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.45), NumberSequenceKeypoint.new(0.50, 0.12), NumberSequenceKeypoint.new(0.88, 0.45), NumberSequenceKeypoint.new(1, 1) }), Parent = sidebarTopDivider })
+	-- Search divider is no longer created from window config.
+	-- Use Window:AddSideBarDivider() in runtime to add a divider below search or between pages.
+
 
 	local contentArea = Create("Frame", { Name = "ContentArea", Size = UDim2.new(1, -SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, SIDEBAR_EXPANDED, 0, NEW_TOPBAR_H), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 6, Parent = root })
 	local topBar = Create("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, TOPBAR_H), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 7, Parent = contentArea })
@@ -1921,11 +1948,12 @@ function Library.new(config)
 		TopBar = topBar,
 		AppNameLabel = appNameLabel,
 		LogoBox = logoBox,
+		SidebarLogoExpandedSize = sidebarLogoSize,
+		SidebarLogoClosedSize = sidebarLogoClosedSize,
 		SidebarSearch = sidebarSearch,
 		SidebarSearchStroke = sidebarSearchStroke,
 		SearchIcon = searchIcon,
 		SearchText = searchText,
-		SidebarTopDivider = sidebarTopDivider,
 		BreadcrumbTabLabel = breadcrumbTabLabel,
 		BreadcrumbSectionLabel = breadcrumbSectionLabel,
 		PageTitle = pageTitle,
