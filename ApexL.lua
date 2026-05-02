@@ -1281,6 +1281,35 @@ function Window:SetSidebarExpanded(expanded)
 	self.SidebarState = isExpanded and "Expanded" or "Closed"
 	self.SidebarClosed = not isExpanded
 	local targetW = isExpanded and SIDEBAR_EXPANDED or SIDEBAR_COLLAPSED
+
+	-- Animate the sidebar toggle icon swap.
+	-- Expanded  -> points left  (collapse action)
+	-- Closed    -> points right (expand action)
+	local toggleIcon = self.SidebarToggleIcon
+	if toggleIcon then
+		local nextImage = ResolveIcon(isExpanded and "solar:double-alt-arrow-left-line-duotone" or "solar:double-alt-arrow-right-line-duotone")
+		self._SidebarToggleIconSwapToken = (self._SidebarToggleIconSwapToken or 0) + 1
+		local swapToken = self._SidebarToggleIconSwapToken
+
+		TweenService:Create(toggleIcon, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			ImageTransparency = 1,
+			Size = UDim2.new(0, 14, 0, 14),
+			Position = UDim2.new(0.5, -7, 0.5, -7),
+			Rotation = isExpanded and -8 or 8,
+		}):Play()
+
+		task.delay(0.09, function()
+			if not toggleIcon.Parent or self._SidebarToggleIconSwapToken ~= swapToken then return end
+			toggleIcon.Image = nextImage
+			toggleIcon.Rotation = isExpanded and 8 or -8
+			TweenService:Create(toggleIcon, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				ImageTransparency = 0,
+				Size = UDim2.new(0, 18, 0, 18),
+				Position = UDim2.new(0.5, -9, 0.5, -9),
+				Rotation = 0,
+			}):Play()
+		end)
+	end
 	TweenService:Create(self.Sidebar, TW_SIDEBAR, { Size = UDim2.new(0, targetW, 1, -NEW_TOPBAR_H) }):Play()
 	TweenService:Create(self.ContentArea, TW_SIDEBAR, {
 		Size = UDim2.new(1, -targetW, 1, -NEW_TOPBAR_H),
@@ -1719,7 +1748,7 @@ function Library.new(config)
 		Size = UDim2.new(0, 18, 0, 18),
 		Position = UDim2.new(0.5, -9, 0.5, -9),
 		BackgroundTransparency = 1,
-		Image = ResolveIcon("solar:sidebar-minimalistic-linear"),
+		Image = ResolveIcon("solar:double-alt-arrow-left-line-duotone"),
 		ImageColor3 = THEME.TEXT_MUTED,
 		ImageTransparency = 0,
 		ScaleType = Enum.ScaleType.Fit,
