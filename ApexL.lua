@@ -1678,6 +1678,7 @@ end
 function Library.new(config)
 	config = config or {}
 	local title = tostring(config.Title or config.Name or "Apex")
+	local topBarRightText = tostring(config.TopBarText or "Future text blbablablta test @2026 - Apex L .")
 	local logo = tostring(config.Logo or LOGO_ASSET)
 	local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
 	local iconsType = tostring(config.IconsType or config.IconType or Library.IconsType or "lucide")
@@ -1756,7 +1757,7 @@ function Library.new(config)
 	Create("Frame", { Name = "NTBBottomLeftFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(0, 0, 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 	Create("Frame", { Name = "NTBBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 
-	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 22), Position = UDim2.new(0, 14, 0.5, -11), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
+	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 22), Position = UDim2.new(0, 86, 0.5, -11), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
 	local sidebarToggleIcon = Create("ImageLabel", {
 		Name = "SidebarToggleIcon",
 		Size = UDim2.new(0, 18, 0, 18),
@@ -1777,7 +1778,7 @@ function Library.new(config)
 		TweenService:Create(sidebarToggleIcon, TW_FAST, { ImageColor3 = THEME.TEXT_MUTED }):Play()
 	end)
 
-	local dotHolder = Create("Frame", { Name = "DotHolder", Size = UDim2.new(0, 68, 1, 0), Position = UDim2.new(1, -66, 0, 0), BackgroundTransparency = 1, ZIndex = 12, Parent = newTopBar })
+	local dotHolder = Create("Frame", { Name = "DotHolder", Size = UDim2.new(0, 68, 1, 0), Position = UDim2.new(0, 14, 0, 0), BackgroundTransparency = 1, ZIndex = 12, Parent = newTopBar })
 	ListLayout(dotHolder, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
 	local function macDot(color, symbol)
 		local dot = Create("Frame", { Size = UDim2.new(0, 12, 0, 12), BackgroundColor3 = THEME.DOT_GRAY, BorderSizePixel = 0, ZIndex = 13, Parent = dotHolder })
@@ -1797,6 +1798,23 @@ function Library.new(config)
 	macDot(THEME.DOT_RED, "×")
 	macDot(THEME.DOT_YELLOW, "−")
 	macDot(THEME.DOT_GREEN, "+")
+
+	local topBarRightInfo = Create("TextLabel", {
+		Name = "TopBarRightInfo",
+		Size = UDim2.new(0, 360, 1, 0),
+		Position = UDim2.new(1, -374, 0, 0),
+		BackgroundTransparency = 1,
+		Text = topBarRightText,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextColor3 = THEME.TEXT_MUTED,
+		TextTransparency = 0.22,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 12,
+		Parent = newTopBar,
+	})
 
 	local sidebar = Create("Frame", { Name = "Sidebar", Size = UDim2.new(0, SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, 0, 0, NEW_TOPBAR_H), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 6, Parent = root })
 	Corner(CORNER_XL, sidebar)
@@ -1872,7 +1890,7 @@ function Library.new(config)
 	ListLayout(userChip, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
 	local userTextStack = Create("Frame", { Name = "UserTextStack", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 10, LayoutOrder = 1, Parent = userChip })
 	ListLayout(userTextStack, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, -2)
-	Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 13), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
+	Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 13), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 8, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
 	Create("TextLabel", { Name = "VisualNick", Size = UDim2.new(0, 0, 0, 18), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = displayNick, Font = FONT_SEMI, TextSize = 13, TextColor3 = THEME.TEXT_PRIMARY, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 11, LayoutOrder = 2, Parent = userTextStack })
 
 	local avatarCircle = Create("Frame", { Name = "Avatar", Size = UDim2.new(0, 32, 0, 32), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 10, LayoutOrder = 2, Parent = userChip })
