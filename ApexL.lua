@@ -262,6 +262,24 @@ local function ResolveIcon(icon, iconType)
 	return raw, false
 end
 
+
+local function GetLocalPlayerHeadshot()
+	local placeholder = "rbxassetid://0"
+	if not LocalPlayer then
+		return placeholder
+	end
+
+	local ok, thumbnail = pcall(function()
+		return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+	end)
+
+	if ok and type(thumbnail) == "string" and thumbnail ~= "" then
+		return thumbnail
+	end
+
+	return placeholder
+end
+
 local function GetKeyCode(value, fallback)
 	fallback = fallback or Enum.KeyCode.LeftAlt
 	if typeof(value) == "EnumItem" then return value end
@@ -1293,8 +1311,6 @@ function Window:SetSidebarExpanded(expanded)
 
 		TweenService:Create(toggleIcon, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			ImageTransparency = 1,
-			Size = UDim2.new(0, 14, 0, 14),
-			Position = UDim2.new(0.5, -7, 0.5, -7),
 			Rotation = isExpanded and -8 or 8,
 		}):Play()
 
@@ -1302,10 +1318,8 @@ function Window:SetSidebarExpanded(expanded)
 			if not toggleIcon.Parent or self._SidebarToggleIconSwapToken ~= swapToken then return end
 			toggleIcon.Image = nextImage
 			toggleIcon.Rotation = isExpanded and 8 or -8
-			TweenService:Create(toggleIcon, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			TweenService:Create(toggleIcon, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				ImageTransparency = 0,
-				Size = UDim2.new(0, 18, 0, 18),
-				Position = UDim2.new(0.5, -9, 0.5, -9),
 				Rotation = 0,
 			}):Play()
 		end)
@@ -1837,21 +1851,42 @@ function Library.new(config)
 	local topRight = Create("Frame", { Name = "TopRight", Size = UDim2.new(0.55, -12, 1, 0), Position = UDim2.new(0.45, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 8, Parent = topBar })
 	Padding(topRight, 0, 5, 0, 0)
 	ListLayout(topRight, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, 0)
+
 	local displayNick = LocalPlayer.DisplayName or LocalPlayer.Name
-	local notificationFrame = Create("Frame", { Name = "Notification", Size = UDim2.new(0, 22, 0, 30), BackgroundTransparency = 1, ZIndex = 9, LayoutOrder = 1, Parent = topRight })
-	Create("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🔔", Font = FONT_REG, TextSize = 15, TextColor3 = THEME.TEXT_SECONDARY, ZIndex = 10, Parent = notificationFrame })
-	local notifDot = Create("Frame", { Size = UDim2.new(0, 7, 0, 7), Position = UDim2.new(1, -4, 0, 1), BackgroundColor3 = Color3.fromRGB(239, 68, 68), BorderSizePixel = 0, ZIndex = 11, Parent = notificationFrame })
-	Corner(4, notifDot)
+	local notificationFrame = Create("Frame", { Name = "NotificationIcon", Size = UDim2.new(0, 24, 0, 30), BackgroundTransparency = 1, ZIndex = 9, LayoutOrder = 1, Parent = topRight })
+	Create("ImageLabel", {
+		Name = "BellIcon",
+		Size = UDim2.new(0, 18, 0, 18),
+		Position = UDim2.new(0.5, -9, 0.5, -9),
+		BackgroundTransparency = 1,
+		Image = ResolveIcon("solar:bell-line-duotone"),
+		ImageColor3 = THEME.TEXT_SECONDARY,
+		ImageTransparency = 0,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 10,
+		Parent = notificationFrame,
+	})
+
 	Create("TextLabel", { Name = "NotificationSeparator", Size = UDim2.new(0, 14, 0, 30), BackgroundTransparency = 1, Text = "/", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0.22, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 2, Parent = topRight })
 	local userChip = Create("Frame", { Name = "UserChip", Size = UDim2.new(0, 0, 0, 34), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 9, LayoutOrder = 3, Parent = topRight })
 	ListLayout(userChip, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
 	local userTextStack = Create("Frame", { Name = "UserTextStack", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 10, LayoutOrder = 1, Parent = userChip })
-	ListLayout(userTextStack, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, -1)
-	Create("TextLabel", { Name = "VisualNick", Size = UDim2.new(0, 0, 0, 17), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = displayNick, Font = FONT_SEMI, TextSize = 12, TextColor3 = THEME.TEXT_PRIMARY, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
-	Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 14), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 11, LayoutOrder = 2, Parent = userTextStack })
-	local avatarCircle = Create("Frame", { Name = "Avatar", Size = UDim2.new(0, 32, 0, 32), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ZIndex = 10, LayoutOrder = 2, Parent = userChip })
+	ListLayout(userTextStack, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, -2)
+	Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 13), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 10, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
+	Create("TextLabel", { Name = "VisualNick", Size = UDim2.new(0, 0, 0, 18), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = displayNick, Font = FONT_SEMI, TextSize = 13, TextColor3 = THEME.TEXT_PRIMARY, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 11, LayoutOrder = 2, Parent = userTextStack })
+
+	local avatarCircle = Create("Frame", { Name = "Avatar", Size = UDim2.new(0, 32, 0, 32), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 10, LayoutOrder = 2, Parent = userChip })
 	Corner(16, avatarCircle)
-	Create("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = string.sub(displayNick, 1, 1), Font = FONT_BOLD, TextSize = 14, TextColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 11, Parent = avatarCircle })
+	local avatarHeadshot = Create("ImageLabel", {
+		Name = "Headshot",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Image = GetLocalPlayerHeadshot(),
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 11,
+		Parent = avatarCircle,
+	})
+	Corner(16, avatarHeadshot)
 
 	local self = setmetatable({
 		Title = title,
@@ -1959,14 +1994,6 @@ function Library.new(config)
 			task.wait(2)
 			TweenService:Create(logoBox, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { BackgroundColor3 = Color3.fromRGB(62, 24, 116) }):Play()
 			task.wait(2)
-		end
-	end)
-	task.spawn(function()
-		while root.Parent do
-			TweenService:Create(notifDot, TW_MED, { BackgroundTransparency = 0.6 }):Play()
-			task.wait(0.8)
-			TweenService:Create(notifDot, TW_MED, { BackgroundTransparency = 0 }):Play()
-			task.wait(0.8)
 		end
 	end)
 
