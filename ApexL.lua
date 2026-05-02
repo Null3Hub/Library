@@ -1275,10 +1275,10 @@ function Window:_ReflowNav(animate)
 			if not isClosed then
 				apply(item.Label, {
 					Position = UDim2.new(0, 14, 0, y),
-					Size = UDim2.new(1, -28, 0, 19),
+					Size = UDim2.new(1, -28, 0, 22),
 					TextTransparency = 0,
 				})
-				y = y + 26
+				y = y + 29
 			else
 				item.Label.TextTransparency = 1
 			end
@@ -1390,12 +1390,12 @@ function Window:AddPageSection(args)
 
 	local label = Create("TextLabel", {
 		Name = "PageSection_" .. sectionName,
-		Size = UDim2.new(1, -28, 0, 19),
+		Size = UDim2.new(1, -28, 0, 22),
 		Position = UDim2.new(0, 14, 0, 0),
 		BackgroundTransparency = 1,
 		Text = sectionName,
 		Font = FONT_SEMI,
-		TextSize = 11,
+		TextSize = 12,
 		TextColor3 = THEME.TEXT_MUTED,
 		TextTransparency = self.SidebarClosed and 1 or 0,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -1658,16 +1658,89 @@ function Window:AddPage(name, icon)
 	return page
 end
 
+function Window:OnDestroy(callback)
+	if type(callback) == "function" then
+		table.insert(self.DestroyCallbacks, callback)
+	end
+	return self
+end
+
+function Window:OnMinimize(callback)
+	if type(callback) == "function" then
+		table.insert(self.MinimizeCallbacks, callback)
+	end
+	return self
+end
+
+function Window:_FireDestroyCallbacks()
+	if self._DestroyCallbacksFired then return end
+	self._DestroyCallbacksFired = true
+	for _, callback in ipairs(self.DestroyCallbacks or {}) do
+		task.spawn(function()
+			pcall(callback, self)
+		end)
+	end
+end
+
+function Window:_FireMinimizeCallbacks(state)
+	for _, callback in ipairs(self.MinimizeCallbacks or {}) do
+		task.spawn(function()
+			pcall(callback, state, self)
+		end)
+	end
+end
+
+function Window:SetNotificationsEnabled(state)
+	local enabled = state and true or false
+	self.NotificationsEnabled = enabled
+	if self.NotificationIcon then
+		TweenService:Create(self.NotificationIcon, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			ImageTransparency = 1,
+			Rotation = enabled and -8 or 8,
+		}):Play()
+		task.delay(0.09, function()
+			if not self.NotificationIcon or not self.NotificationIcon.Parent then return end
+			self.NotificationIcon.Image = ResolveIcon(enabled and "solar:bell-outline" or "solar:bell-off-line-duotone")
+			self.NotificationIcon.Rotation = enabled and 8 or -8
+			TweenService:Create(self.NotificationIcon, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				ImageTransparency = 0,
+				Rotation = 0,
+			}):Play()
+		end)
+	end
+	return enabled
+end
+
+function Window:ToggleNotifications()
+	return self:SetNotificationsEnabled(not self.NotificationsEnabled)
+end
+
+function Window:Minimize()
+	self:SetVisible(false)
+end
+
 function Window:Destroy()
-	for _, conn in ipairs(self.Connections) do
+	if self.Destroyed then return end
+	self.Destroyed = true
+	self:_FireDestroyCallbacks()
+	for _, conn in ipairs(self.Connections or {}) do
 		pcall(function() conn:Disconnect() end)
 	end
-	if self.ScreenGui then self.ScreenGui:Destroy() end
+	if self.ScreenGui then
+		self.ScreenGui:Destroy()
+		self.ScreenGui = nil
+	end
 end
 
 function Window:SetVisible(state)
-	self.Visible = state and true or false
+	if self.Destroyed or not self.Window then return end
+	local nextVisible = state and true or false
+	local minimized = self.Visible == true and nextVisible == false
+	self.Visible = nextVisible
 	self.Window.Visible = self.Visible
+	if minimized then
+		self:_FireMinimizeCallbacks(true)
+	end
 end
 
 function Window:Toggle()
@@ -1787,8 +1860,17 @@ function Library.new(config)
 
 	local dotHolder = Create("Frame", { Name = "DotHolder", Size = UDim2.new(0, 52, 1, 0), Position = UDim2.new(0, 14, 0, 0), BackgroundTransparency = 1, ZIndex = 12, Parent = newTopBar })
 	ListLayout(dotHolder, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
-	local function macDot(color, symbol)
-		local dot = Create("Frame", { Size = UDim2.new(0, 12, 0, 12), BackgroundColor3 = THEME.DOT_GRAY, BorderSizePixel = 0, ZIndex = 13, Parent = dotHolder })
+	local function macDot(name, color, symbol)
+		local dot = Create("TextButton", {
+			Name = name,
+			Size = UDim2.new(0, 12, 0, 12),
+			BackgroundColor3 = THEME.DOT_GRAY,
+			BorderSizePixel = 0,
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 13,
+			Parent = dotHolder,
+		})
 		Corner(6, dot)
 		local lbl = Create("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", Font = FONT_BOLD, TextSize = 8, TextColor3 = Color3.fromRGB(40, 0, 0), TextTransparency = 1, ZIndex = 14, Parent = dot })
 		dot.MouseEnter:Connect(function()
@@ -1802,9 +1884,9 @@ function Library.new(config)
 		end)
 		return dot
 	end
-	macDot(THEME.DOT_RED, "×")
-	macDot(THEME.DOT_YELLOW, "−")
-	macDot(THEME.DOT_GREEN, "+")
+	local closeDot = macDot("CloseButton", THEME.DOT_RED, "×")
+	local minimizeDot = macDot("MinimizeButton", THEME.DOT_YELLOW, "−")
+	local idleDot = macDot("IdleButton", THEME.DOT_GREEN, "+")
 
 	local topBarRightInfo = Create("TextLabel", {
 		Name = "TopBarRightInfo",
@@ -1850,7 +1932,7 @@ function Library.new(config)
 		ZIndex = 9,
 		Parent = logoBox,
 	})
-	local appNameOffset = 14 + sidebarLogoSize + 8
+	local appNameOffset = 14 + sidebarLogoSize + (sidebarLogoBgEnabled and 8 or 5)
 	local appNameLabel = Create("TextLabel", { Name = "AppName", Size = UDim2.new(1, -(appNameOffset + 8), 1, 0), Position = UDim2.new(0, appNameOffset, 0, 0), BackgroundTransparency = 1, Text = title, Font = FONT_BOLD, TextSize = 16, TextColor3 = THEME.TEXT_ACCENT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 8, Parent = sidebarTop })
 
 	local sidebarSearch = Create("Frame", { Name = "SidebarSearch", Size = UDim2.new(1, -28, 0, 32), Position = UDim2.new(0, 14, 0, 62), BackgroundColor3 = THEME.BG_SEARCH, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
@@ -1898,18 +1980,28 @@ function Library.new(config)
 	ListLayout(topRight, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, 0)
 
 	local displayNick = LocalPlayer.DisplayName or LocalPlayer.Name
-	local notificationFrame = Create("Frame", { Name = "NotificationIcon", Size = UDim2.new(0, 24, 0, 30), BackgroundTransparency = 1, ZIndex = 9, LayoutOrder = 1, Parent = topRight })
-	Create("ImageLabel", {
+	local notificationEnabled = true
+	local notificationButton = Create("TextButton", {
+		Name = "NotificationButton",
+		Size = UDim2.new(0, 24, 0, 30),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 9,
+		LayoutOrder = 1,
+		Parent = topRight,
+	})
+	local notificationIcon = Create("ImageLabel", {
 		Name = "BellIcon",
 		Size = UDim2.new(0, 18, 0, 18),
 		Position = UDim2.new(0.5, -9, 0.5, -9),
 		BackgroundTransparency = 1,
-		Image = ResolveIcon("solar:bell-line-duotone"),
+		Image = ResolveIcon("solar:bell-outline"),
 		ImageColor3 = THEME.TEXT_SECONDARY,
 		ImageTransparency = 0,
 		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 10,
-		Parent = notificationFrame,
+		Parent = notificationButton,
 	})
 
 	Create("TextLabel", { Name = "NotificationSeparator", Size = UDim2.new(0, 14, 0, 30), BackgroundTransparency = 1, Text = "/", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0.22, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10, LayoutOrder = 2, Parent = topRight })
@@ -1942,6 +2034,14 @@ function Library.new(config)
 		SidebarTop = sidebarTop,
 		SidebarToggle = sidebarToggle,
 		SidebarToggleIcon = sidebarToggleIcon,
+		CloseButton = closeDot,
+		MinimizeButton = minimizeDot,
+		IdleButton = idleDot,
+		NotificationButton = notificationButton,
+		NotificationIcon = notificationIcon,
+		NotificationsEnabled = notificationEnabled,
+		DestroyCallbacks = {},
+		MinimizeCallbacks = {},
 		SidebarDivider = sidebarDivider,
 		LineBelowPageTopBar = lineBelowPageTopBar,
 		ContentArea = contentArea,
@@ -1978,9 +2078,18 @@ function Library.new(config)
 	self.ToggleIconBar2 = toggleIconBar2
 	self.ToggleIconBlock = toggleIconBlock
 
-	sidebarToggle.MouseButton1Click:Connect(function()
+	table.insert(self.Connections, sidebarToggle.MouseButton1Click:Connect(function()
 		self:SetSidebarExpanded(self.SidebarState == "Closed")
-	end)
+	end))
+	table.insert(self.Connections, closeDot.MouseButton1Click:Connect(function()
+		self:Destroy()
+	end))
+	table.insert(self.Connections, minimizeDot.MouseButton1Click:Connect(function()
+		self:Minimize()
+	end))
+	table.insert(self.Connections, notificationButton.MouseButton1Click:Connect(function()
+		self:ToggleNotifications()
+	end))
 
 	-- Window drag
 	local dragging = false
