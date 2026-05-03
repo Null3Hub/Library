@@ -1740,17 +1740,17 @@ function Window:SetUserPopupVisible(opened, instant)
 		end
 
 		popup.GroupTransparency = 1
-		scale.Scale = 0.94
-		TweenService:Create(popup, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		scale.Scale = 0.9
+		TweenService:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			GroupTransparency = 0,
 		}):Play()
-		TweenService:Create(scale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		TweenService:Create(scale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			Scale = 1,
 		}):Play()
 	else
 		if instant then
 			popup.GroupTransparency = 1
-			scale.Scale = 0.96
+			scale.Scale = 0.92
 			popup.Visible = false
 			return
 		end
@@ -1758,8 +1758,8 @@ function Window:SetUserPopupVisible(opened, instant)
 		local fadeTween = TweenService:Create(popup, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 			GroupTransparency = 1,
 		})
-		TweenService:Create(scale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Scale = 0.96,
+		TweenService:Create(scale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Scale = 0.92,
 		}):Play()
 		fadeTween:Play()
 		fadeTween.Completed:Once(function()
@@ -2093,10 +2093,10 @@ function Library.new(config)
 	local userPopup = Create("CanvasGroup", {
 		Name = "UserMiniPopup",
 		AnchorPoint = Vector2.new(1, 0),
-		Size = UDim2.new(0, 238, 0, 154),
+		Size = UDim2.new(0, 238, 0, 159),
 		Position = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 8),
 		BackgroundColor3 = THEME.BG_CARD,
-		BackgroundTransparency = 0,
+		BackgroundTransparency = 0.8,
 		GroupTransparency = 1,
 		BorderSizePixel = 0,
 		Visible = false,
@@ -2104,10 +2104,10 @@ function Library.new(config)
 		ZIndex = 140,
 		Parent = root,
 	})
-	Corner(14, userPopup)
+	Corner(11, userPopup)
 
 	local userPopupScale = Create("UIScale", {
-		Scale = 0.94,
+		Scale = 0.9,
 		Parent = userPopup,
 	})
 
@@ -2209,16 +2209,16 @@ function Library.new(config)
 	})
 
 	local userPopupInfo = Create("Frame", {
-		Name = "InfoCard",
-		Size = UDim2.new(1, 0, 0, 54),
+		Name = "UserPopupSectionBlock",
+		Size = UDim2.new(1, 0, 0, 60),
 		Position = UDim2.new(0, 0, 0, 72),
 		BackgroundColor3 = THEME.BG_BUTTON,
-		BackgroundTransparency = 0.12,
+		BackgroundTransparency = 0.22,
 		BorderSizePixel = 0,
 		ZIndex = 142,
 		Parent = userPopup,
 	})
-	Corner(10, userPopupInfo)
+	Corner(8, userPopupInfo)
 	Create("UIStroke", {
 		Color = THEME.BORDER,
 		Transparency = 0.55,
@@ -2226,10 +2226,21 @@ function Library.new(config)
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		Parent = userPopupInfo,
 	})
+	local userPopupSectionAccent = Create("Frame", {
+		Name = "SectionAccent",
+		Size = UDim2.new(0, 3, 0, 28),
+		Position = UDim2.new(0, 8, 0.5, -14),
+		BackgroundColor3 = THEME.ACCENT_BLUE,
+		BackgroundTransparency = 0.05,
+		BorderSizePixel = 0,
+		ZIndex = 143,
+		Parent = userPopupInfo,
+	})
+	Corner(3, userPopupSectionAccent)
 	Create("TextLabel", {
 		Name = "Title",
-		Size = UDim2.new(1, -18, 0, 18),
-		Position = UDim2.new(0, 9, 0, 8),
+		Size = UDim2.new(1, -30, 0, 18),
+		Position = UDim2.new(0, 18, 0, 9),
 		BackgroundTransparency = 1,
 		Text = "Account",
 		TextColor3 = THEME.TEXT_PRIMARY,
@@ -2241,8 +2252,8 @@ function Library.new(config)
 	})
 	Create("TextLabel", {
 		Name = "Sub",
-		Size = UDim2.new(1, -18, 0, 18),
-		Position = UDim2.new(0, 9, 0, 28),
+		Size = UDim2.new(1, -30, 0, 18),
+		Position = UDim2.new(0, 18, 0, 31),
 		BackgroundTransparency = 1,
 		Text = "Profile panel ready",
 		TextColor3 = THEME.TEXT_MUTED,
