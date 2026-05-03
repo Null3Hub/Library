@@ -1715,87 +1715,115 @@ function Window:ToggleNotifications()
 	return self:SetNotificationsEnabled(not self.NotificationsEnabled)
 end
 
-function Window:SetUserPopupVisible(opened, instant)
+function Window:SetUserSettingsVisible(opened, instant)
 	if self.Destroyed then return end
-	local popup = self.UserPopup
-	local scale = self.UserPopupScale
-	local stroke = self.UserPopupStroke
-	if not popup or not popup.Parent or not scale then return end
+	local settings = self.UserSettings
+	local scale = self.UserSettingsScale
+	local stroke = self.UserSettingsStroke
+	if not settings or not settings.Parent or not scale then return end
 
 	opened = opened == true
-	if self.UserPopupOpened == opened and not instant then
+	if self.UserSettingsOpened == opened and not instant then
 		return
 	end
 
-	self.UserPopupOpened = opened
-	self._UserPopupTweenToken = (self._UserPopupTweenToken or 0) + 1
-	local token = self._UserPopupTweenToken
-	local targetTransparency = self.UserPopupBackgroundTransparency or 0.5
-	local targetStrokeTransparency = self.UserPopupStrokeTransparency or 0.22
+	self.UserSettingsOpened = opened
+	self._UserSettingsTweenToken = (self._UserSettingsTweenToken or 0) + 1
+	local token = self._UserSettingsTweenToken
+	local targetTransparency = self.UserSettingsBackgroundTransparency or 0.5
+	local targetStrokeTransparency = self.UserSettingsStrokeTransparency or 0.18
+	local basePosition = self.UserSettingsBasePosition or settings.Position
 
 	if opened then
-		popup.Visible = true
+		settings.Visible = true
+		settings.Position = basePosition + UDim2.new(0, 0, 0, -10)
 
 		if instant then
-			popup.BackgroundTransparency = targetTransparency
+			settings.BackgroundTransparency = targetTransparency
 			if stroke then stroke.Transparency = targetStrokeTransparency end
 			scale.Scale = 1
+			settings.Position = basePosition
+			if self.UserSettingsWelcomeLabel then
+				self.UserSettingsWelcomeLabel.Text = self.UserSettingsWelcomeText or self.UserSettingsWelcomeLabel.Text
+			end
 			return
 		end
 
-		-- Only the popup background fades in/out. Children keep their own transparency.
-		popup.BackgroundTransparency = 1
+		settings.BackgroundTransparency = 1
 		if stroke then stroke.Transparency = 1 end
-		scale.Scale = 0.9
+		scale.Scale = 0.86
 
-		TweenService:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		TweenService:Create(settings, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			BackgroundTransparency = targetTransparency,
+			Position = basePosition,
 		}):Play()
 
 		if stroke then
-			TweenService:Create(stroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			TweenService:Create(stroke, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				Transparency = targetStrokeTransparency,
 			}):Play()
 		end
 
-		TweenService:Create(scale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		TweenService:Create(scale, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			Scale = 1,
 		}):Play()
+
+		local label = self.UserSettingsWelcomeLabel
+		local fullText = self.UserSettingsWelcomeText or "Welcome to User Settings"
+		if label then
+			self._UserSettingsTypingToken = (self._UserSettingsTypingToken or 0) + 1
+			local typingToken = self._UserSettingsTypingToken
+			label.Text = ""
+			task.spawn(function()
+				task.wait(0.08)
+				for i = 1, #fullText do
+					if self._UserSettingsTypingToken ~= typingToken or not self.UserSettingsOpened or not label.Parent then
+						return
+					end
+					label.Text = string.sub(fullText, 1, i)
+					task.wait(0.018)
+				end
+			end)
+		end
 	else
 		if instant then
-			popup.BackgroundTransparency = 1
+			settings.BackgroundTransparency = 1
 			if stroke then stroke.Transparency = 1 end
-			scale.Scale = 0.92
-			popup.Visible = false
+			scale.Scale = 0.9
+			settings.Position = basePosition + UDim2.new(0, 0, 0, -8)
+			settings.Visible = false
 			return
 		end
 
-		local fadeTween = TweenService:Create(popup, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		local fadeTween = TweenService:Create(settings, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 			BackgroundTransparency = 1,
+			Position = basePosition + UDim2.new(0, 0, 0, -8),
 		})
 
 		if stroke then
-			TweenService:Create(stroke, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			TweenService:Create(stroke, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 				Transparency = 1,
 			}):Play()
 		end
 
-		TweenService:Create(scale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Scale = 0.92,
+		TweenService:Create(scale, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Scale = 0.9,
 		}):Play()
 
 		fadeTween:Play()
 		fadeTween.Completed:Once(function()
-			if self._UserPopupTweenToken == token and not self.UserPopupOpened and popup and popup.Parent then
-				popup.Visible = false
+			if self._UserSettingsTweenToken == token and not self.UserSettingsOpened and settings and settings.Parent then
+				settings.Visible = false
+				settings.Position = basePosition
 			end
 		end)
 	end
 end
 
-function Window:ToggleUserPopup()
-	self:SetUserPopupVisible(not self.UserPopupOpened)
+function Window:ToggleUserSettings()
+	self:SetUserSettingsVisible(not self.UserSettingsOpened)
 end
+
 
 function Window:Minimize()
 	self:SetVisible(false)
@@ -1803,7 +1831,7 @@ end
 
 function Window:Destroy()
 	if self.Destroyed then return end
-	self:SetUserPopupVisible(false, true)
+	self:SetUserSettingsVisible(false, true)
 	self.Destroyed = true
 	self:_FireDestroyCallbacks()
 	for _, conn in ipairs(self.Connections or {}) do
@@ -1822,6 +1850,7 @@ function Window:SetVisible(state)
 	self.Visible = nextVisible
 	self.Window.Visible = self.Visible
 	if minimized then
+		self:SetUserSettingsVisible(false, true)
 		self:_FireMinimizeCallbacks(true)
 	end
 end
@@ -2109,15 +2138,16 @@ function Library.new(config)
 	Corner(16, avatarHeadshot)
 
 	-- ============================================================
-	-- USER MINI POPUP
-	-- Small Syde-inspired profile panel. It is parented to the main
-	-- window so it stays clipped/styled with the current Apex palette.
+	-- USER SETTINGS
+	-- Syde-inspired profile/settings popup. Parent is the main window so
+	-- it follows the current Apex palette and ZIndex stack.
 	-- ============================================================
-	local userPopup = Create("Frame", {
-		Name = "UserMiniPopup",
+	local userSettingsBasePosition = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 8)
+	local userSettings = Create("Frame", {
+		Name = "UserSettings",
 		AnchorPoint = Vector2.new(1, 0),
-		Size = UDim2.new(0, 238, 0, 159),
-		Position = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 8),
+		Size = UDim2.new(0, 286, 0, 226),
+		Position = userSettingsBasePosition,
 		BackgroundColor3 = THEME.BG_CARD,
 		BackgroundTransparency = 0.5,
 		BorderSizePixel = 0,
@@ -2126,20 +2156,20 @@ function Library.new(config)
 		ZIndex = 140,
 		Parent = root,
 	})
-	Corner(11, userPopup)
+	Corner(8, userSettings)
 
-	local userPopupScale = Create("UIScale", {
-		Scale = 0.9,
-		Parent = userPopup,
+	local userSettingsScale = Create("UIScale", {
+		Scale = 0.86,
+		Parent = userSettings,
 	})
 
-	local userPopupStroke = Create("UIStroke", {
+	local userSettingsStroke = Create("UIStroke", {
 		Color = THEME.BORDER,
-		Transparency = 0.22,
+		Transparency = 0.18,
 		Thickness = 1,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-		Parent = userPopup,
+		Parent = userSettings,
 	})
 
 	Create("UIGradient", {
@@ -2150,32 +2180,40 @@ function Library.new(config)
 		}),
 		Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0, 0),
-			NumberSequenceKeypoint.new(1, 0.12),
+			NumberSequenceKeypoint.new(1, 0.1),
 		}),
-		Parent = userPopup,
+		Parent = userSettings,
 	})
 
 	Create("UIPadding", {
-		PaddingTop = UDim.new(0, 12),
-		PaddingBottom = UDim.new(0, 12),
-		PaddingLeft = UDim.new(0, 12),
-		PaddingRight = UDim.new(0, 12),
-		Parent = userPopup,
+		PaddingTop = UDim.new(0, 13),
+		PaddingBottom = UDim.new(0, 13),
+		PaddingLeft = UDim.new(0, 13),
+		PaddingRight = UDim.new(0, 13),
+		Parent = userSettings,
 	})
 
-	local userPopupAvatarHolder = Create("Frame", {
+	local userSettingsAvatarHolder = Create("Frame", {
 		Name = "AvatarHolder",
-		Size = UDim2.new(0, 44, 0, 44),
+		Size = UDim2.new(0, 50, 0, 50),
 		Position = UDim2.new(0, 0, 0, 0),
-		BackgroundColor3 = THEME.ACCENT_BLUE,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 142,
-		Parent = userPopup,
+		Parent = userSettings,
 	})
-	Corner(999, userPopupAvatarHolder)
+	Corner(999, userSettingsAvatarHolder)
+	Create("UIStroke", {
+		Color = THEME.ACCENT_BLUE,
+		Transparency = 0.05,
+		Thickness = 2,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+		Parent = userSettingsAvatarHolder,
+	})
 
-	local userPopupAvatar = Create("ImageLabel", {
+	local userSettingsAvatar = Create("ImageLabel", {
 		Name = "Avatar",
 		Size = UDim2.new(1, -4, 1, -4),
 		Position = UDim2.new(0, 2, 0, 2),
@@ -2183,30 +2221,32 @@ function Library.new(config)
 		Image = avatarHeadshot.Image,
 		ScaleType = Enum.ScaleType.Crop,
 		ZIndex = 143,
-		Parent = userPopupAvatarHolder,
+		Parent = userSettingsAvatarHolder,
 	})
-	Corner(999, userPopupAvatar)
+	Corner(999, userSettingsAvatar)
 
-	Create("TextLabel", {
-		Name = "DisplayName",
-		Size = UDim2.new(1, -58, 0, 22),
-		Position = UDim2.new(0, 56, 0, 2),
+	local userSettingsWelcomeText = "Welcome to User Settings, " .. tostring(displayNick)
+	local userSettingsWelcome = Create("TextLabel", {
+		Name = "WelcomeText",
+		Size = UDim2.new(1, -66, 0, 34),
+		Position = UDim2.new(0, 64, 0, 1),
 		BackgroundTransparency = 1,
-		Text = tostring(displayNick),
+		Text = userSettingsWelcomeText,
 		TextColor3 = THEME.TEXT_PRIMARY,
 		Font = FONT_BOLD,
-		TextSize = 16,
+		TextSize = 15,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 142,
-		Parent = userPopup,
+		Parent = userSettings,
 	})
 
 	Create("TextLabel", {
 		Name = "Username",
-		Size = UDim2.new(1, -58, 0, 18),
-		Position = UDim2.new(0, 56, 0, 25),
+		Size = UDim2.new(1, -66, 0, 17),
+		Position = UDim2.new(0, 64, 0, 36),
 		BackgroundTransparency = 1,
 		Text = "@" .. tostring(LocalPlayer.Name),
 		TextColor3 = THEME.TEXT_MUTED,
@@ -2216,66 +2256,70 @@ function Library.new(config)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 142,
-		Parent = userPopup,
+		Parent = userSettings,
 	})
 
 	Create("Frame", {
-		Name = "Divider",
+		Name = "TopDivider",
 		Size = UDim2.new(1, 0, 0, 1),
-		Position = UDim2.new(0, 0, 0, 58),
+		Position = UDim2.new(0, 0, 0, 63),
 		BackgroundColor3 = THEME.BORDER,
-		BackgroundTransparency = 0.45,
+		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
 		ZIndex = 142,
-		Parent = userPopup,
+		Parent = userSettings,
 	})
 
-	local userPopupInfo = Create("Frame", {
-		Name = "UserPopupSectionBlock",
-		Size = UDim2.new(1, 0, 0, 60),
-		Position = UDim2.new(0, 0, 0, 72),
+	local userSettingsSection = Create("Frame", {
+		Name = "UserSettingsSectionBlock",
+		Size = UDim2.new(1, 0, 0, 132),
+		Position = UDim2.new(0, 0, 0, 76),
 		BackgroundColor3 = THEME.BG_BUTTON,
-		BackgroundTransparency = 0.22,
+		BackgroundTransparency = 0.04,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		ZIndex = 142,
-		Parent = userPopup,
+		Parent = userSettings,
 	})
-	Corner(8, userPopupInfo)
+	Corner(9, userSettingsSection)
 	Create("UIStroke", {
 		Color = THEME.BORDER,
-		Transparency = 0.55,
+		Transparency = 0.34,
 		Thickness = 1,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = userPopupInfo,
+		Parent = userSettingsSection,
 	})
-	local userPopupSectionAccent = Create("Frame", {
+
+	local userSettingsAccent = Create("Frame", {
 		Name = "SectionAccent",
-		Size = UDim2.new(0, 3, 0, 28),
-		Position = UDim2.new(0, 8, 0.5, -14),
+		Size = UDim2.new(0, 3, 0, 32),
+		Position = UDim2.new(0, 9, 0, 11),
 		BackgroundColor3 = THEME.ACCENT_BLUE,
-		BackgroundTransparency = 0.05,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 		ZIndex = 143,
-		Parent = userPopupInfo,
+		Parent = userSettingsSection,
 	})
-	Corner(3, userPopupSectionAccent)
+	Corner(3, userSettingsAccent)
+
 	Create("TextLabel", {
 		Name = "Title",
 		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 18, 0, 9),
+		Position = UDim2.new(0, 21, 0, 10),
 		BackgroundTransparency = 1,
 		Text = "Account",
 		TextColor3 = THEME.TEXT_PRIMARY,
 		Font = FONT_SEMI,
-		TextSize = 12,
+		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 143,
-		Parent = userPopupInfo,
+		Parent = userSettingsSection,
 	})
+
 	Create("TextLabel", {
 		Name = "Sub",
 		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 18, 0, 31),
+		Position = UDim2.new(0, 21, 0, 30),
 		BackgroundTransparency = 1,
 		Text = "Profile panel ready",
 		TextColor3 = THEME.TEXT_MUTED,
@@ -2283,12 +2327,135 @@ function Library.new(config)
 		TextSize = 11,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 143,
-		Parent = userPopupInfo,
+		Parent = userSettingsSection,
+	})
+
+	local userSettingsButton = Create("TextButton", {
+		Name = "TestButton",
+		Size = UDim2.new(0, 78, 0, 26),
+		Position = UDim2.new(1, -89, 0, 14),
+		BackgroundColor3 = THEME.BG_ACTIVE,
+		BackgroundTransparency = 0.08,
+		BorderSizePixel = 0,
+		Text = "Apex",
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_SEMI,
+		TextSize = 12,
+		AutoButtonColor = false,
+		ZIndex = 144,
+		Parent = userSettingsSection,
+	})
+	Corner(8, userSettingsButton)
+	Create("UIStroke", {
+		Color = THEME.ACCENT_BLUE,
+		Transparency = 0.45,
+		Thickness = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = userSettingsButton,
+	})
+	HoverColor(userSettingsButton, THEME.BG_ACTIVE, THEME.BG_HOVER)
+
+	local userSettingsDropdown = Create("Frame", {
+		Name = "TestDropdown",
+		Size = UDim2.new(1, -18, 0, 28),
+		Position = UDim2.new(0, 9, 0, 58),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BackgroundTransparency = 0.02,
+		BorderSizePixel = 0,
+		ZIndex = 143,
+		Parent = userSettingsSection,
+	})
+	Corner(8, userSettingsDropdown)
+	Create("UIStroke", {
+		Color = THEME.BORDER,
+		Transparency = 0.45,
+		Thickness = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = userSettingsDropdown,
+	})
+	Create("TextLabel", {
+		Name = "DropdownText",
+		Size = UDim2.new(1, -36, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = "Dropdown test",
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 144,
+		Parent = userSettingsDropdown,
+	})
+	Create("ImageLabel", {
+		Name = "DropdownIcon",
+		Size = UDim2.new(0, 15, 0, 15),
+		Position = UDim2.new(1, -24, 0.5, -7),
+		BackgroundTransparency = 1,
+		Image = ResolveIcon("solar:alt-arrow-down-line-duotone"),
+		ImageColor3 = THEME.TEXT_MUTED,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 144,
+		Parent = userSettingsDropdown,
+	})
+
+	local userSettingsKeybind = Create("Frame", {
+		Name = "TestKeybind",
+		Size = UDim2.new(1, -18, 0, 28),
+		Position = UDim2.new(0, 9, 0, 94),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BackgroundTransparency = 0.02,
+		BorderSizePixel = 0,
+		ZIndex = 143,
+		Parent = userSettingsSection,
+	})
+	Corner(8, userSettingsKeybind)
+	Create("UIStroke", {
+		Color = THEME.BORDER,
+		Transparency = 0.45,
+		Thickness = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = userSettingsKeybind,
+	})
+	Create("TextLabel", {
+		Name = "KeybindText",
+		Size = UDim2.new(1, -64, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = "Keybind test",
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 144,
+		Parent = userSettingsKeybind,
+	})
+	local userSettingsKeyBox = Create("Frame", {
+		Name = "KeyBox",
+		Size = UDim2.new(0, 46, 0, 18),
+		Position = UDim2.new(1, -55, 0.5, -9),
+		BackgroundColor3 = THEME.BG_ACTIVE,
+		BackgroundTransparency = 0.08,
+		BorderSizePixel = 0,
+		ZIndex = 144,
+		Parent = userSettingsKeybind,
+	})
+	Corner(6, userSettingsKeyBox)
+	Create("TextLabel", {
+		Name = "KeyText",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "LeftAlt",
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_SEMI,
+		TextSize = 9,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		ZIndex = 145,
+		Parent = userSettingsKeyBox,
 	})
 
 	-- Hitbox only over the avatar/icon side, not the whole user text area.
-	local userPopupHitbox = Create("TextButton", {
-		Name = "UserPopupHitbox",
+	local userSettingsHitbox = Create("TextButton", {
+		Name = "UserSettingsHitbox",
 		Size = UDim2.fromScale(1, 1),
 		Position = UDim2.fromScale(0, 0),
 		BackgroundTransparency = 1,
@@ -2297,6 +2464,7 @@ function Library.new(config)
 		ZIndex = 30,
 		Parent = avatarCircle,
 	})
+
 
 	local self = setmetatable({
 		Title = title,
@@ -2313,13 +2481,16 @@ function Library.new(config)
 		NotificationButton = notificationButton,
 		NotificationIcon = notificationIcon,
 		NotificationsEnabled = notificationEnabled,
-		UserPopup = userPopup,
-		UserPopupScale = userPopupScale,
-		UserPopupStroke = userPopupStroke,
-		UserPopupBackgroundTransparency = 0.5,
-		UserPopupStrokeTransparency = 0.22,
-		UserPopupHitbox = userPopupHitbox,
-		UserPopupOpened = false,
+		UserSettings = userSettings,
+		UserSettingsScale = userSettingsScale,
+		UserSettingsStroke = userSettingsStroke,
+		UserSettingsBackgroundTransparency = 0.5,
+		UserSettingsStrokeTransparency = 0.18,
+		UserSettingsHitbox = userSettingsHitbox,
+		UserSettingsOpened = false,
+		UserSettingsBasePosition = userSettingsBasePosition,
+		UserSettingsWelcomeLabel = userSettingsWelcome,
+		UserSettingsWelcomeText = userSettingsWelcomeText,
 		DestroyCallbacks = {},
 		MinimizeCallbacks = {},
 		SidebarDivider = sidebarDivider,
@@ -2370,8 +2541,8 @@ function Library.new(config)
 	table.insert(self.Connections, notificationButton.MouseButton1Click:Connect(function()
 		self:ToggleNotifications()
 	end))
-	table.insert(self.Connections, userPopupHitbox.MouseButton1Click:Connect(function()
-		self:ToggleUserPopup()
+	table.insert(self.Connections, userSettingsHitbox.MouseButton1Click:Connect(function()
+		self:ToggleUserSettings()
 	end))
 
 	-- Window drag
