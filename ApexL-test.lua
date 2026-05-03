@@ -1719,6 +1719,7 @@ function Window:SetUserPopupVisible(opened, instant)
 	if self.Destroyed then return end
 	local popup = self.UserPopup
 	local scale = self.UserPopupScale
+	local stroke = self.UserPopupStroke
 	if not popup or not popup.Parent or not scale then return end
 
 	opened = opened == true
@@ -1729,38 +1730,60 @@ function Window:SetUserPopupVisible(opened, instant)
 	self.UserPopupOpened = opened
 	self._UserPopupTweenToken = (self._UserPopupTweenToken or 0) + 1
 	local token = self._UserPopupTweenToken
+	local targetTransparency = self.UserPopupBackgroundTransparency or 0.5
+	local targetStrokeTransparency = self.UserPopupStrokeTransparency or 0.22
 
 	if opened then
 		popup.Visible = true
 
 		if instant then
-			popup.GroupTransparency = 0
+			popup.BackgroundTransparency = targetTransparency
+			if stroke then stroke.Transparency = targetStrokeTransparency end
 			scale.Scale = 1
 			return
 		end
 
-		popup.GroupTransparency = 1
+		-- Only the popup background fades in/out. Children keep their own transparency.
+		popup.BackgroundTransparency = 1
+		if stroke then stroke.Transparency = 1 end
 		scale.Scale = 0.9
+
 		TweenService:Create(popup, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			GroupTransparency = 0,
+			BackgroundTransparency = targetTransparency,
 		}):Play()
+
+		if stroke then
+			TweenService:Create(stroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Transparency = targetStrokeTransparency,
+			}):Play()
+		end
+
 		TweenService:Create(scale, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 			Scale = 1,
 		}):Play()
 	else
 		if instant then
-			popup.GroupTransparency = 1
+			popup.BackgroundTransparency = 1
+			if stroke then stroke.Transparency = 1 end
 			scale.Scale = 0.92
 			popup.Visible = false
 			return
 		end
 
 		local fadeTween = TweenService:Create(popup, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			GroupTransparency = 1,
+			BackgroundTransparency = 1,
 		})
+
+		if stroke then
+			TweenService:Create(stroke, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Transparency = 1,
+			}):Play()
+		end
+
 		TweenService:Create(scale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 			Scale = 0.92,
 		}):Play()
+
 		fadeTween:Play()
 		fadeTween.Completed:Once(function()
 			if self._UserPopupTweenToken == token and not self.UserPopupOpened and popup and popup.Parent then
@@ -2090,14 +2113,13 @@ function Library.new(config)
 	-- Small Syde-inspired profile panel. It is parented to the main
 	-- window so it stays clipped/styled with the current Apex palette.
 	-- ============================================================
-	local userPopup = Create("CanvasGroup", {
+	local userPopup = Create("Frame", {
 		Name = "UserMiniPopup",
 		AnchorPoint = Vector2.new(1, 0),
 		Size = UDim2.new(0, 238, 0, 159),
 		Position = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 8),
 		BackgroundColor3 = THEME.BG_CARD,
-		BackgroundTransparency = 0.8,
-		GroupTransparency = 1,
+		BackgroundTransparency = 0.5,
 		BorderSizePixel = 0,
 		Visible = false,
 		ClipsDescendants = true,
@@ -2111,7 +2133,7 @@ function Library.new(config)
 		Parent = userPopup,
 	})
 
-	Create("UIStroke", {
+	local userPopupStroke = Create("UIStroke", {
 		Color = THEME.BORDER,
 		Transparency = 0.22,
 		Thickness = 1,
@@ -2293,6 +2315,9 @@ function Library.new(config)
 		NotificationsEnabled = notificationEnabled,
 		UserPopup = userPopup,
 		UserPopupScale = userPopupScale,
+		UserPopupStroke = userPopupStroke,
+		UserPopupBackgroundTransparency = 0.5,
+		UserPopupStrokeTransparency = 0.22,
 		UserPopupHitbox = userPopupHitbox,
 		UserPopupOpened = false,
 		DestroyCallbacks = {},
