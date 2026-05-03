@@ -8,16 +8,19 @@
 	Example:
 	local ui = loadstring(game:HttpGet("URL/Library.lua"))()
 	local window = ui.new({ Title = "My Dashboard" })
-	local page = window:AddPage("Home", "rbxassetid://123456")
-	local section = page:AddSection("General")
-	section:AddLabel("Welcome to your dashboard!")
-	section:AddToggle("Enable feature", false, function(v) print(v) end)
+	local page = window:Page("Home", "rbxassetid://123456")
+	local section = page:Section("General")
+	section:Label("Welcome to your dashboard!")
+	section:Toggle("Enable feature", false, function(v) print(v) end)
 --]]
 
 local Library = {}
 Library.__index = Library
 Library.Version = "ApexLibrary_v1.0.0"
 Library.IconsType = "lucide"
+
+local HIDDEN_DEFAULT_NAME = "ApexUser"
+local HIDDEN_AVATAR = "rbxassetid://138430753186586"
 
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
@@ -322,6 +325,308 @@ Page.__index = Page
 local Window = {}
 Window.__index = Window
 
+local UserSettingsSection = {}
+UserSettingsSection.__index = UserSettingsSection
+
+
+local function ResolveUserSettingsArgs(first, second, defaultTitle)
+	local args = type(first) == "table" and first or { Title = first, Callback = second }
+	args.Title = tostring(args.Title or args.Name or args.Text or defaultTitle or "Element")
+	return args
+end
+
+function UserSettingsSection:_Refresh()
+	if self.ElementsLayout and self.ElementsList then
+		local height = self.ElementsLayout.AbsoluteContentSize.Y
+		self.ElementsList.Size = UDim2.new(1, 0, 0, height)
+		self.Container.Size = UDim2.new(1, 0, 0, math.max(76, 58 + height))
+	end
+
+	local window = self.Window
+	if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
+		local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
+		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 8)
+	end
+end
+
+function UserSettingsSection:_BaseElement(name, height)
+	local element = Create("Frame", {
+		Name = name or "Element",
+		Size = UDim2.new(1, 0, 0, height or 30),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BackgroundTransparency = 0.04,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 145,
+		Parent = self.ElementsList,
+	})
+	Corner(8, element)
+	Stroke(element, THEME.BORDER, 1).Transparency = 0.48
+	return element
+end
+
+function UserSettingsSection:Button(first, second)
+	local args = ResolveUserSettingsArgs(first, second, "Button")
+	local callback = args.Callback or second
+	local button = Create("TextButton", {
+		Name = "Button",
+		Size = UDim2.new(1, 0, 0, tonumber(args.Height) or 30),
+		BackgroundColor3 = args.Color or THEME.BG_ACTIVE,
+		BackgroundTransparency = args.Transparency or 0.05,
+		BorderSizePixel = 0,
+		Text = tostring(args.Title),
+		TextColor3 = args.TextColor or THEME.TEXT_SECONDARY,
+		Font = FONT_SEMI,
+		TextSize = tonumber(args.TextSize) or 12,
+		AutoButtonColor = false,
+		ZIndex = 145,
+		Parent = self.ElementsList,
+	})
+	Corner(8, button)
+	local stroke = Stroke(button, args.StrokeColor or THEME.ACCENT_BLUE, 1)
+	stroke.Transparency = args.StrokeTransparency or 0.48
+	HoverColor(button, button.BackgroundColor3, args.HoverColor or THEME.BG_HOVER)
+	button.MouseButton1Click:Connect(function()
+		SafeCallback(callback)
+	end)
+	task.defer(function() self:_Refresh() end)
+	return button
+end
+
+function UserSettingsSection:Dropdown(first)
+	local args = ResolveUserSettingsArgs(first, nil, "Dropdown")
+	local values = type(args.Values) == "table" and args.Values or type(args.Options) == "table" and args.Options or {}
+	local selected = args.Default or values[1] or "None"
+	local opened = false
+
+	local holder = self:_BaseElement("Dropdown", 30)
+	local label = Create("TextLabel", {
+		Name = "DropdownText",
+		Size = UDim2.new(1, -36, 0, 30),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = tostring(args.Title) .. ": " .. tostring(selected),
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 146,
+		Parent = holder,
+	})
+	local arrow = Create("ImageLabel", {
+		Name = "DropdownIcon",
+		Size = UDim2.new(0, 15, 0, 15),
+		Position = UDim2.new(1, -24, 0, 15 - 7),
+		BackgroundTransparency = 1,
+		Image = ResolveIcon("solar:alt-arrow-down-line-duotone"),
+		ImageColor3 = THEME.TEXT_MUTED,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 146,
+		Parent = holder,
+	})
+	local list = Create("Frame", {
+		Name = "Options",
+		Size = UDim2.new(1, -12, 0, 0),
+		Position = UDim2.new(0, 6, 0, 33),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		ZIndex = 146,
+		Parent = holder,
+	})
+	local listLayout = ListLayout(list, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 4)
+
+	local function setOpen(state)
+		opened = state == true
+		local h = opened and math.min(#values, 4) * 26 + math.max(#values - 1, 0) * 4 or 0
+		TweenService:Create(holder, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(1, 0, 0, 30 + h + (opened and 8 or 0))
+		}):Play()
+		TweenService:Create(list, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(1, -12, 0, h)
+		}):Play()
+		TweenService:Create(arrow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Rotation = opened and 180 or 0
+		}):Play()
+		task.delay(0.19, function() self:_Refresh() end)
+	end
+
+	for _, value in ipairs(values) do
+		local option = Create("TextButton", {
+			Name = "Option",
+			Size = UDim2.new(1, 0, 0, 26),
+			BackgroundColor3 = THEME.BG_BUTTON,
+			BackgroundTransparency = 0.03,
+			BorderSizePixel = 0,
+			Text = tostring(value),
+			TextColor3 = THEME.TEXT_SECONDARY,
+			Font = FONT_REG,
+			TextSize = 11,
+			AutoButtonColor = false,
+			ZIndex = 147,
+			Parent = list,
+		})
+		Corner(7, option)
+		HoverColor(option, THEME.BG_BUTTON, THEME.BG_HOVER)
+		option.MouseButton1Click:Connect(function()
+			selected = value
+			label.Text = tostring(args.Title) .. ": " .. tostring(selected)
+			setOpen(false)
+			SafeCallback(args.Callback, selected)
+		end)
+	end
+
+	holder.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			setOpen(not opened)
+		end
+	end)
+
+	task.defer(function() self:_Refresh() end)
+	return {
+		Set = function(_, value)
+			selected = value
+			label.Text = tostring(args.Title) .. ": " .. tostring(selected)
+			SafeCallback(args.Callback, selected)
+		end,
+		Get = function() return selected end,
+		Instance = holder,
+	}
+end
+
+function UserSettingsSection:Keybind(first)
+	local args = ResolveUserSettingsArgs(first, nil, "Keybind")
+	local key = GetKeyCode(args.Default or args.Key or args.Value, Enum.KeyCode.LeftAlt)
+	local waiting = false
+	local element = self:_BaseElement("Keybind", 30)
+	Create("TextLabel", {
+		Name = "KeybindText",
+		Size = UDim2.new(1, -76, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = tostring(args.Title),
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 146,
+		Parent = element,
+	})
+	local keyBox = Create("TextButton", {
+		Name = "KeyBox",
+		Size = UDim2.new(0, 54, 0, 20),
+		Position = UDim2.new(1, -64, 0.5, -10),
+		BackgroundColor3 = THEME.BG_ACTIVE,
+		BackgroundTransparency = 0.08,
+		BorderSizePixel = 0,
+		Text = key.Name,
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_SEMI,
+		TextSize = 9,
+		AutoButtonColor = false,
+		ZIndex = 146,
+		Parent = element,
+	})
+	Corner(6, keyBox)
+	keyBox.MouseButton1Click:Connect(function()
+		waiting = true
+		keyBox.Text = "..."
+	end)
+	local conn
+	conn = UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or not waiting then return end
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			waiting = false
+			key = input.KeyCode
+			keyBox.Text = key.Name
+			SafeCallback(args.Callback, key)
+		end
+	end)
+	if self.Window then table.insert(self.Window.Connections, conn) end
+	task.defer(function() self:_Refresh() end)
+	return {
+		Set = function(_, value)
+			key = GetKeyCode(value, key)
+			keyBox.Text = key.Name
+		end,
+		Get = function() return key end,
+		Instance = element,
+	}
+end
+
+function UserSettingsSection:Toggle(first, second, third)
+	local args = type(first) == "table" and first or { Title = first, Default = second, Callback = third }
+	args.Title = tostring(args.Title or args.Name or "Toggle")
+	local enabled = args.Default == true
+	local element = self:_BaseElement("Toggle", 30)
+	Create("TextLabel", {
+		Name = "ToggleText",
+		Size = UDim2.new(1, -64, 1, 0),
+		Position = UDim2.new(0, 10, 0, 0),
+		BackgroundTransparency = 1,
+		Text = args.Title,
+		TextColor3 = THEME.TEXT_SECONDARY,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 146,
+		Parent = element,
+	})
+	local switch = Create("TextButton", {
+		Name = "Switch",
+		Size = UDim2.new(0, 42, 0, 20),
+		Position = UDim2.new(1, -52, 0.5, -10),
+		BackgroundColor3 = enabled and THEME.ACCENT_BLUE or THEME.BG_BUTTON,
+		BackgroundTransparency = 0.06,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 146,
+		Parent = element,
+	})
+	Corner(10, switch)
+	local knob = Create("Frame", {
+		Name = "Knob",
+		Size = UDim2.new(0, 14, 0, 14),
+		Position = enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
+		BackgroundColor3 = THEME.TEXT_SECONDARY,
+		BorderSizePixel = 0,
+		ZIndex = 147,
+		Parent = switch,
+	})
+	Corner(999, knob)
+	local function set(value)
+		enabled = value == true
+		TweenService:Create(switch, TW_FAST, { BackgroundColor3 = enabled and THEME.ACCENT_BLUE or THEME.BG_BUTTON }):Play()
+		TweenService:Create(knob, TW_FAST, { Position = enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7) }):Play()
+		SafeCallback(args.Callback, enabled)
+	end
+	switch.MouseButton1Click:Connect(function() set(not enabled) end)
+	task.defer(function() self:_Refresh() end)
+	return { Set = function(_, v) set(v) end, Get = function() return enabled end, Instance = element }
+end
+
+function UserSettingsSection:Special(first)
+	local args = ResolveUserSettingsArgs(first, nil, "Special")
+	local element = self:_BaseElement(args.Name or "Special", tonumber(args.Height) or 34)
+	if type(args.Render) == "function" then
+		SafeCallback(args.Render, element, self.Window, self)
+	else
+		Create("TextLabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = tostring(args.Title),
+			TextColor3 = THEME.TEXT_SECONDARY,
+			Font = FONT_REG,
+			TextSize = 11,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			ZIndex = 146,
+			Parent = element,
+		})
+	end
+	task.defer(function() self:_Refresh() end)
+	return element
+end
+
 function Library.SetIconsType(iconType)
 	DefaultIconsType = tostring(iconType or "lucide")
 	Library.IconsType = DefaultIconsType
@@ -407,7 +712,7 @@ function Section:_Title(parent, title, desc)
 	end
 end
 
-function Section:AddLabel(text, desc)
+function Section:Label(text, desc)
 	local element = self:_BaseElement("ApexLabel", desc and 44 or 38)
 	self:_Title(element, text or "Label", desc)
 
@@ -436,7 +741,7 @@ function Section:AddLabel(text, desc)
 	return { Instance = element, Set = function(_, value) local t = element:FindFirstChild("Title"); if t then t.Text = tostring(value) end end }
 end
 
-function Section:AddButton(text, callback, desc)
+function Section:Button(text, callback, desc)
 	local element, buttonStroke = self:_BaseElement("ApexButton", desc and 44 or 38)
 	self:_Title(element, text or "Button", desc)
 
@@ -475,7 +780,7 @@ function Section:AddButton(text, callback, desc)
 	return { Instance = element, SetText = function(_, value) local t = element:FindFirstChild("Title"); if t then t.Text = tostring(value) end end }
 end
 
-function Section:AddToggle(text, default, callback, desc)
+function Section:Toggle(text, default, callback, desc)
 	local element = self:_BaseElement("ApexToggle", desc and 44 or 38)
 	self:_Title(element, text or "Toggle", desc)
 	local value = default and true or false
@@ -535,7 +840,7 @@ function Section:AddToggle(text, default, callback, desc)
 	return object
 end
 
-function Section:AddSlider(text, min, max, default, callback, desc)
+function Section:Slider(text, min, max, default, callback, desc)
 	min = tonumber(min) or 0
 	max = tonumber(max) or 100
 	if min > max then min, max = max, min end
@@ -623,7 +928,7 @@ function Section:AddSlider(text, min, max, default, callback, desc)
 	return object
 end
 
-function Section:AddDropdown(configOrTitle, values, default, callback)
+function Section:Dropdown(configOrTitle, values, default, callback)
 	local config = {}
 	if type(configOrTitle) == "table" then
 		config = configOrTitle
@@ -993,7 +1298,7 @@ function Section:AddDropdown(configOrTitle, values, default, callback)
 	}
 end
 
-function Section:AddInput(text, default, callback, desc)
+function Section:Input(text, default, callback, desc)
 	local element = self:_BaseElement("ApexInput", desc and 46 or 42)
 	self:_Title(element, text or "Input", desc)
 	local holder = Create("Frame", {
@@ -1036,7 +1341,7 @@ function Section:AddInput(text, default, callback, desc)
 	return object
 end
 
-function Section:AddKeybind(text, default, callback, desc)
+function Section:Keybind(text, default, callback, desc)
 	local element = self:_BaseElement("ApexKeybind", desc and 44 or 38)
 	self:_Title(element, text or "Keybind", desc)
 	local current = GetKeyCode(default, Enum.KeyCode.LeftAlt)
@@ -1100,7 +1405,7 @@ function Page:UpdateCanvas()
 	self._UpdatingCanvas = false
 end
 
-function Page:AddSection(name, subtitle)
+function Page:Section(name, subtitle)
 	local sectionFrame = Create("Frame", {
 		Name = "Section_" .. tostring(name or "Section"),
 		Size = UDim2.new(1, 0, 0, 0),
@@ -1405,11 +1710,11 @@ function Window:UpdateContentCanvas()
 	page._UpdatingCanvas = false
 end
 
-function Window:AddPageSection(args)
+function Window:PageSection(args)
 	-- Optional sidebar label shown only when the sidebar is expanded.
 	-- Usage:
-	--   Window:AddPageSection({ Name = "MAIN" })
-	--   Window:AddPageSection("MAIN")
+	--   Window:PageSection({ Name = "MAIN" })
+	--   Window:PageSection("MAIN")
 	local sectionArgs = type(args) == "table" and args or nil
 	local sectionName = sectionArgs and (sectionArgs.Name or sectionArgs.Title or sectionArgs.Text or sectionArgs.name or sectionArgs.title or sectionArgs.text) or args
 	sectionName = tostring(sectionName or "Section")
@@ -1460,7 +1765,7 @@ function Window:AddPageSection(args)
 	}
 end
 
-function Window:AddSideBarDivider()
+function Window:SideBarDivider()
 	-- Optional sidebar divider. It is full-width in expanded mode and
 	-- becomes a compact centered divider in closed mode.
 	local divider = Create("Frame", {
@@ -1510,14 +1815,13 @@ function Window:AddSideBarDivider()
 end
 
 
-Window.AddSidebarDivider = Window.AddSideBarDivider
-Window.AddSidebarSectionDivider = Window.AddSideBarDivider
+Window.SidebarDivider = Window.SideBarDivider
+Window.SidebarSectionDivider = Window.SideBarDivider
 
-function Window:AddPage(name, icon)
-	-- Old API is still supported:
-	--   Window:AddPage("Home", "rbxassetid://...")
-	-- New table API:
-	--   Window:AddPage({ Name = "Home", Icone = "house" })
+function Window:Page(name, icon)
+	-- Page API:
+	--   Window:Page("Home", "rbxassetid://...")
+	--   Window:Page({ Name = "Home", Icone = "house" })
 	-- Native IconsV2 support:
 	--   Icone = "house"
 	--   Icone = "lucide:house"
@@ -1741,6 +2045,193 @@ function Window:ToggleNotifications()
 	return self:SetNotificationsEnabled(not self.NotificationsEnabled)
 end
 
+
+function Window:_GetIdentity()
+	local hiddenEnabled = self.HiddenMode == true
+	local hiddenName = tostring(self.HiddenName or HIDDEN_DEFAULT_NAME)
+	local visualName = hiddenEnabled and hiddenName or tostring(self.RealDisplayName or LocalPlayer.DisplayName or LocalPlayer.Name)
+	local userName = hiddenEnabled and hiddenName or tostring(self.RealUserName or LocalPlayer.Name)
+	local avatar = hiddenEnabled and (self.HiddenAvatar or HIDDEN_AVATAR) or (self.RealAvatar or GetLocalPlayerHeadshot())
+	return visualName, userName, avatar, hiddenEnabled
+end
+
+function Window:_ApplyIdentity(animate)
+	local visualName, userName, avatar, hiddenEnabled = self:_GetIdentity()
+	local usernameText = "@" .. tostring(userName)
+
+	if self.TopbarVisualNick then
+		self.TopbarVisualNick.Text = visualName
+		self.TopbarVisualNick.TextSize = hiddenEnabled and 14 or 13
+		self.TopbarVisualNick.TextYAlignment = hiddenEnabled and Enum.TextYAlignment.Center or Enum.TextYAlignment.Top
+		self.TopbarVisualNick.Size = hiddenEnabled and UDim2.new(0, 0, 0, 24) or UDim2.new(0, 0, 0, 18)
+	end
+	if self.TopbarRealNick then
+		self.TopbarRealNick.Text = usernameText
+		self.TopbarRealNick.Visible = not hiddenEnabled
+	end
+	if self.TopbarAvatarImage then
+		if animate then
+			TweenService:Create(self.TopbarAvatarImage, TW_FAST, { ImageTransparency = 1 }):Play()
+			task.delay(0.12, function()
+				if self.TopbarAvatarImage and self.TopbarAvatarImage.Parent then
+					self.TopbarAvatarImage.Image = avatar
+					TweenService:Create(self.TopbarAvatarImage, TW_FAST, { ImageTransparency = 0 }):Play()
+				end
+			end)
+		else
+			self.TopbarAvatarImage.Image = avatar
+			self.TopbarAvatarImage.ImageTransparency = 0
+		end
+	end
+	if self.UserSettingsAvatarImage then
+		self.UserSettingsAvatarImage.Image = avatar
+	end
+	if self.UserSettingsUsernameLabel then
+		self.UserSettingsUsernameLabel.Text = hiddenEnabled and "Hidden Mode" or usernameText
+	end
+
+	self.UserSettingsWelcomeText = "Welcome to User Settings, " .. tostring(visualName)
+	if self.UserSettingsWelcomeLabel and not self.UserSettingsOpened then
+		self.UserSettingsWelcomeLabel.Text = self.UserSettingsWelcomeText
+	end
+end
+
+function Window:SetHiddenMode(enabled, nick)
+	self.HiddenMode = enabled == true
+	if nick ~= nil then
+		self.HiddenName = tostring(nick)
+	end
+	self:_ApplyIdentity(true)
+	return self
+end
+
+
+function Window:ToggleHiddenMode(nick)
+	return self:SetHiddenMode(not self.HiddenMode, nick)
+end
+
+
+function Window:SetHiddenName(nick)
+	self.HiddenName = tostring(nick or HIDDEN_DEFAULT_NAME)
+	if self.HiddenMode then
+		self:_ApplyIdentity(true)
+	end
+	return self
+end
+
+
+function Window:UserSettingsSection(args)
+	args = type(args) == "table" and args or { Name = args }
+	local name = tostring(args.Name or args.Title or "Section")
+	local description = tostring(args.Description or args.Subtitle or args.Sub or "")
+	if not self.UserSettingsBody then return nil end
+
+	local container = Create("Frame", {
+		Name = "UserSettingsSection_" .. name,
+		Size = UDim2.new(1, -2, 0, 76),
+		BackgroundColor3 = args.BackgroundColor or THEME.BG_BUTTON,
+		BackgroundTransparency = args.BackgroundTransparency ~= nil and args.BackgroundTransparency or 0.03,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 142,
+		Parent = self.UserSettingsBody,
+	})
+	Corner(9, container)
+	local stroke = Stroke(container, args.StrokeColor or THEME.BORDER, 1)
+	stroke.Transparency = args.StrokeTransparency ~= nil and args.StrokeTransparency or 0.32
+
+	local accent = Create("Frame", {
+		Name = "SectionAccent",
+		Size = UDim2.new(0, 3, 0, 32),
+		Position = UDim2.new(0, 9, 0, 11),
+		BackgroundColor3 = args.AccentColor or THEME.ACCENT_BLUE,
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		ZIndex = 143,
+		Parent = container,
+	})
+	Corner(3, accent)
+	Create("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -30, 0, 18),
+		Position = UDim2.new(0, 21, 0, 10),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = THEME.TEXT_PRIMARY,
+		Font = FONT_SEMI,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 143,
+		Parent = container,
+	})
+	Create("TextLabel", {
+		Name = "Sub",
+		Size = UDim2.new(1, -30, 0, 18),
+		Position = UDim2.new(0, 21, 0, 30),
+		BackgroundTransparency = 1,
+		Text = description,
+		TextColor3 = THEME.TEXT_MUTED,
+		Font = FONT_REG,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 143,
+		Parent = container,
+	})
+	local elements = Create("Frame", {
+		Name = "Elements",
+		Size = UDim2.new(1, -18, 0, 0),
+		Position = UDim2.new(0, 9, 0, 58),
+		BackgroundTransparency = 1,
+		ZIndex = 144,
+		Parent = container,
+	})
+	local layout = ListLayout(elements, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 6)
+
+	local section = setmetatable({
+		Window = self,
+		Container = container,
+		ElementsList = elements,
+		ElementsLayout = layout,
+	}, UserSettingsSection)
+
+	table.insert(self.UserSettingsSections, section)
+	task.defer(function() section:_Refresh() end)
+	return section
+end
+
+
+function Window:GetUserSettingsSection()
+	if not self.DefaultUserSettingsSection then
+		self.DefaultUserSettingsSection = self:UserSettingsSection({
+			Name = "Account",
+			Description = "Profile panel ready",
+		})
+	end
+	return self.DefaultUserSettingsSection
+end
+
+
+
+
+
+
+
+
+
+
+
+function Window:ClearUserSettings()
+	for _, section in ipairs(self.UserSettingsSections or {}) do
+		if section.Container then section.Container:Destroy() end
+	end
+	self.UserSettingsSections = {}
+	self.DefaultUserSettingsSection = nil
+	if self.UserSettingsBody then
+		self.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, 0)
+	end
+	return self
+end
+
 function Window:SetUserSettingsVisible(opened, instant)
 	if self.Destroyed then return end
 	local settings = self.UserSettings
@@ -1898,8 +2389,11 @@ function Library.new(config)
 	local sidebarLogoCorner = tonumber(sidebarLogoConfig.Corner or sidebarLogoConfig.CornerRadius) or 9
 	local sidebarLogoBgEnabled = sidebarLogoConfig.Background ~= false and sidebarLogoConfig.BackgroundEnabled ~= false and sidebarLogoConfig.ShowBackground ~= false
 	local sidebarLogoBgColor = sidebarLogoConfig.BackgroundColor or sidebarLogoConfig.Color or THEME.ACCENT_BLUE
-		local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
+	local keybind = GetKeyCode(config.Keybind or Enum.KeyCode.LeftAlt, Enum.KeyCode.LeftAlt)
 	local iconsType = tostring(config.IconsType or config.IconType or Library.IconsType or "lucide")
+	local hiddenName = tostring(config.HiddenName or HIDDEN_DEFAULT_NAME)
+	local hiddenAvatar = tostring(config.HiddenAvatar or HIDDEN_AVATAR)
+	local hiddenMode = (config.HiddenMode == true)
 	DefaultIconsType = iconsType
 	Library.IconsType = iconsType
 
@@ -2091,7 +2585,7 @@ function Library.new(config)
 	local searchText = Create("TextLabel", { Name = "SearchText", Size = UDim2.new(1, -46, 1, 0), Position = UDim2.new(0, 32, 0, 0), BackgroundTransparency = 1, Text = "Search anything...", Font = FONT_REG, TextSize = 12, TextColor3 = THEME.TEXT_MUTED, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = sidebarSearch })
 
 	-- Search divider is no longer created from window config.
-	-- Use Window:AddSideBarDivider() in runtime to add a divider below search or between pages.
+	-- Use Window:SideBarDivider() in runtime to add a divider below search or between pages.
 
 
 	local contentArea = Create("Frame", { Name = "ContentArea", Size = UDim2.new(1, -SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, SIDEBAR_EXPANDED, 0, NEW_TOPBAR_H), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 6, Parent = root })
@@ -2147,8 +2641,8 @@ function Library.new(config)
 	ListLayout(userChip, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center, 8)
 	local userTextStack = Create("Frame", { Name = "UserTextStack", Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, ZIndex = 10, LayoutOrder = 1, Parent = userChip })
 	ListLayout(userTextStack, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center, -2)
-	Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 13), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 8, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
-	Create("TextLabel", { Name = "VisualNick", Size = UDim2.new(0, 0, 0, 18), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = displayNick, Font = FONT_SEMI, TextSize = 13, TextColor3 = THEME.TEXT_PRIMARY, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 11, LayoutOrder = 2, Parent = userTextStack })
+	local topbarRealNick = Create("TextLabel", { Name = "RealNick", Size = UDim2.new(0, 0, 0, 13), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "@" .. LocalPlayer.Name, Font = FONT_REG, TextSize = 8, TextColor3 = THEME.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Bottom, ZIndex = 11, LayoutOrder = 1, Parent = userTextStack })
+	local topbarVisualNick = Create("TextLabel", { Name = "VisualNick", Size = UDim2.new(0, 0, 0, 18), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = displayNick, Font = FONT_SEMI, TextSize = 13, TextColor3 = THEME.TEXT_PRIMARY, TextXAlignment = Enum.TextXAlignment.Right, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 11, LayoutOrder = 2, Parent = userTextStack })
 
 	local avatarCircle = Create("Frame", { Name = "Avatar", Size = UDim2.new(0, 32, 0, 32), BackgroundColor3 = THEME.ACCENT_BLUE, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 10, LayoutOrder = 2, Parent = userChip })
 	Corner(16, avatarCircle)
@@ -2269,7 +2763,7 @@ function Library.new(config)
 		Parent = userSettings,
 	})
 
-	Create("TextLabel", {
+	local userSettingsUsername = Create("TextLabel", {
 		Name = "Username",
 		Size = UDim2.new(1, -66, 0, 17),
 		Position = UDim2.new(0, 64, 0, 36),
@@ -2296,188 +2790,23 @@ function Library.new(config)
 		Parent = userSettings,
 	})
 
-	local userSettingsSection = Create("Frame", {
-		Name = "UserSettingsSectionBlock",
-		Size = UDim2.new(1, 0, 0, 132),
+	local userSettingsBody = Create("ScrollingFrame", {
+		Name = "UserSettingsBody",
+		Size = UDim2.new(1, 0, 0, 154),
 		Position = UDim2.new(0, 0, 0, 76),
-		BackgroundColor3 = THEME.BG_BUTTON,
-		BackgroundTransparency = 0.04,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ScrollBarThickness = 0,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.None,
+		ElasticBehavior = Enum.ElasticBehavior.Never,
 		ClipsDescendants = true,
 		ZIndex = 142,
 		Parent = userSettings,
 	})
-	Corner(9, userSettingsSection)
-	Create("UIStroke", {
-		Color = THEME.BORDER,
-		Transparency = 0.34,
-		Thickness = 1,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = userSettingsSection,
-	})
-
-	local userSettingsAccent = Create("Frame", {
-		Name = "SectionAccent",
-		Size = UDim2.new(0, 3, 0, 32),
-		Position = UDim2.new(0, 9, 0, 11),
-		BackgroundColor3 = THEME.ACCENT_BLUE,
-		BackgroundTransparency = 0,
-		BorderSizePixel = 0,
-		ZIndex = 143,
-		Parent = userSettingsSection,
-	})
-	Corner(3, userSettingsAccent)
-
-	Create("TextLabel", {
-		Name = "Title",
-		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 21, 0, 10),
-		BackgroundTransparency = 1,
-		Text = "Account",
-		TextColor3 = THEME.TEXT_PRIMARY,
-		Font = FONT_SEMI,
-		TextSize = 13,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 143,
-		Parent = userSettingsSection,
-	})
-
-	Create("TextLabel", {
-		Name = "Sub",
-		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 21, 0, 30),
-		BackgroundTransparency = 1,
-		Text = "Profile panel ready",
-		TextColor3 = THEME.TEXT_MUTED,
-		Font = FONT_REG,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 143,
-		Parent = userSettingsSection,
-	})
-
-	local userSettingsButton = Create("TextButton", {
-		Name = "TestButton",
-		Size = UDim2.new(0, 78, 0, 26),
-		Position = UDim2.new(1, -89, 0, 14),
-		BackgroundColor3 = THEME.BG_ACTIVE,
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		Text = "Apex",
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_SEMI,
-		TextSize = 12,
-		AutoButtonColor = false,
-		ZIndex = 144,
-		Parent = userSettingsSection,
-	})
-	Corner(8, userSettingsButton)
-	Create("UIStroke", {
-		Color = THEME.ACCENT_BLUE,
-		Transparency = 0.45,
-		Thickness = 1,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = userSettingsButton,
-	})
-	HoverColor(userSettingsButton, THEME.BG_ACTIVE, THEME.BG_HOVER)
-
-	local userSettingsDropdown = Create("Frame", {
-		Name = "TestDropdown",
-		Size = UDim2.new(1, -18, 0, 28),
-		Position = UDim2.new(0, 9, 0, 58),
-		BackgroundColor3 = THEME.BG_SEARCH,
-		BackgroundTransparency = 0.02,
-		BorderSizePixel = 0,
-		ZIndex = 143,
-		Parent = userSettingsSection,
-	})
-	Corner(8, userSettingsDropdown)
-	Create("UIStroke", {
-		Color = THEME.BORDER,
-		Transparency = 0.45,
-		Thickness = 1,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = userSettingsDropdown,
-	})
-	Create("TextLabel", {
-		Name = "DropdownText",
-		Size = UDim2.new(1, -36, 1, 0),
-		Position = UDim2.new(0, 10, 0, 0),
-		BackgroundTransparency = 1,
-		Text = "Dropdown test",
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_REG,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 144,
-		Parent = userSettingsDropdown,
-	})
-	Create("ImageLabel", {
-		Name = "DropdownIcon",
-		Size = UDim2.new(0, 15, 0, 15),
-		Position = UDim2.new(1, -24, 0.5, -7),
-		BackgroundTransparency = 1,
-		Image = ResolveIcon("solar:alt-arrow-down-line-duotone"),
-		ImageColor3 = THEME.TEXT_MUTED,
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 144,
-		Parent = userSettingsDropdown,
-	})
-
-	local userSettingsKeybind = Create("Frame", {
-		Name = "TestKeybind",
-		Size = UDim2.new(1, -18, 0, 28),
-		Position = UDim2.new(0, 9, 0, 94),
-		BackgroundColor3 = THEME.BG_SEARCH,
-		BackgroundTransparency = 0.02,
-		BorderSizePixel = 0,
-		ZIndex = 143,
-		Parent = userSettingsSection,
-	})
-	Corner(8, userSettingsKeybind)
-	Create("UIStroke", {
-		Color = THEME.BORDER,
-		Transparency = 0.45,
-		Thickness = 1,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Parent = userSettingsKeybind,
-	})
-	Create("TextLabel", {
-		Name = "KeybindText",
-		Size = UDim2.new(1, -64, 1, 0),
-		Position = UDim2.new(0, 10, 0, 0),
-		BackgroundTransparency = 1,
-		Text = "Keybind test",
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_REG,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 144,
-		Parent = userSettingsKeybind,
-	})
-	local userSettingsKeyBox = Create("Frame", {
-		Name = "KeyBox",
-		Size = UDim2.new(0, 46, 0, 18),
-		Position = UDim2.new(1, -55, 0.5, -9),
-		BackgroundColor3 = THEME.BG_ACTIVE,
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		ZIndex = 144,
-		Parent = userSettingsKeybind,
-	})
-	Corner(6, userSettingsKeyBox)
-	Create("TextLabel", {
-		Name = "KeyText",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Text = "LeftAlt",
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_SEMI,
-		TextSize = 9,
-		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 145,
-		Parent = userSettingsKeyBox,
-	})
+	local userSettingsBodyLayout = ListLayout(userSettingsBody, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 8)
+	Padding(userSettingsBody, 0, 1, 8, 1)
 
 	-- Hitbox only over the avatar/icon side, not the whole user text area.
 	local userSettingsHitbox = Create("TextButton", {
@@ -2517,6 +2846,21 @@ function Library.new(config)
 		UserSettingsBasePosition = userSettingsBasePosition,
 		UserSettingsWelcomeLabel = userSettingsWelcome,
 		UserSettingsWelcomeText = userSettingsWelcomeText,
+		UserSettingsUsernameLabel = userSettingsUsername,
+		UserSettingsAvatarImage = userSettingsAvatar,
+		UserSettingsBody = userSettingsBody,
+		UserSettingsBodyLayout = userSettingsBodyLayout,
+		UserSettingsSections = {},
+		DefaultUserSettingsSection = nil,
+		TopbarRealNick = topbarRealNick,
+		TopbarVisualNick = topbarVisualNick,
+		TopbarAvatarImage = avatarHeadshot,
+		RealDisplayName = tostring(LocalPlayer.DisplayName or LocalPlayer.Name),
+		RealUserName = tostring(LocalPlayer.Name),
+		RealAvatar = avatarHeadshot.Image,
+		HiddenMode = hiddenMode,
+		HiddenName = hiddenName,
+		HiddenAvatar = hiddenAvatar,
 		DestroyCallbacks = {},
 		MinimizeCallbacks = {},
 		SidebarDivider = sidebarDivider,
@@ -2554,6 +2898,12 @@ function Library.new(config)
 	self.ToggleIconBar1 = toggleIconBar1
 	self.ToggleIconBar2 = toggleIconBar2
 	self.ToggleIconBlock = toggleIconBlock
+
+	self.DefaultUserSettingsSection = self:UserSettingsSection({
+		Name = "Account",
+		Description = "Profile panel ready",
+	})
+	self:_ApplyIdentity(false)
 
 	table.insert(self.Connections, sidebarToggle.MouseButton1Click:Connect(function()
 		self:SetSidebarExpanded(self.SidebarState == "Closed")
