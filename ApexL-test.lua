@@ -130,6 +130,32 @@ local function ListLayout(parent, fillDir, hAlign, vAlign, spacing)
 	return l
 end
 
+local function HoverColor(frame, normalColor, hoverColor, tweenInfo)
+	if not frame or not frame:IsA("GuiObject") then
+		return
+	end
+
+	tweenInfo = tweenInfo or TW_FAST
+	normalColor = normalColor or frame.BackgroundColor3
+	hoverColor = hoverColor or THEME.BG_HOVER
+
+	frame.MouseEnter:Connect(function()
+		if frame.Parent then
+			TweenService:Create(frame, tweenInfo, {
+				BackgroundColor3 = hoverColor
+			}):Play()
+		end
+	end)
+
+	frame.MouseLeave:Connect(function()
+		if frame.Parent then
+			TweenService:Create(frame, tweenInfo, {
+				BackgroundColor3 = normalColor
+			}):Play()
+		end
+	end)
+end
+
 local function GradientStrokeFrame(parent, name, radius, thickness, zIndex)
 	local frame = Create("Frame", {
 		Name = name or "GradientStrokeFrame",
