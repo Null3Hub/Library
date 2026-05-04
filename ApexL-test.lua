@@ -133,6 +133,32 @@ local function ListLayout(parent, fillDir, hAlign, vAlign, spacing)
 	return l
 end
 
+local function IsInsideForegroundLayer(guiObject)
+	local current = guiObject
+	while current do
+		if current.GetAttribute and current:GetAttribute("ApexForegroundLayer") == true then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
+
+local function IsForegroundInputBlocked(guiObject)
+	if IsInsideForegroundLayer(guiObject) then
+		return false
+	end
+
+	local current = guiObject
+	while current do
+		if current.GetAttribute and current:GetAttribute("ApexForegroundInputBlocked") == true then
+			return true
+		end
+		current = current.Parent
+	end
+	return false
+end
+
 local function HoverColor(frame, normalColor, hoverColor, tweenInfo)
 	if not frame or not frame:IsA("GuiObject") then
 		return
@@ -143,7 +169,7 @@ local function HoverColor(frame, normalColor, hoverColor, tweenInfo)
 	hoverColor = hoverColor or THEME.BG_HOVER
 
 	frame.MouseEnter:Connect(function()
-		if frame.Parent then
+		if frame.Parent and not IsForegroundInputBlocked(frame) then
 			TweenService:Create(frame, tweenInfo, {
 				BackgroundColor3 = hoverColor
 			}):Play()
@@ -360,6 +386,7 @@ function UserSettingsSection:_BaseElement(name, height)
 	local elStroke = Stroke(element, THEME.BORDER, 1)
 	elStroke.Transparency = 0.25
 	element.MouseEnter:Connect(function()
+		if IsForegroundInputBlocked(element) then return end
 		TweenService:Create(elStroke, TW_FAST, { Color = Color3.fromRGB(87, 84, 104) }):Play()
 		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.04 }):Play()
 	end)
@@ -2202,6 +2229,7 @@ function Window:Page(name, icon)
 		self:_SetActivePage(page)
 	end)
 	navButton.MouseEnter:Connect(function()
+		if IsForegroundInputBlocked(navButton) then return end
 		if self.CurrentPage ~= page then
 			TweenService:Create(navButton, TW_FAST, { BackgroundColor3 = THEME.BG_HOVER, BackgroundTransparency = 0 }):Play()
 		end
@@ -2541,6 +2569,7 @@ function Window:SetUserSettingsVisible(opened, instant)
 	local settings = self.UserSettings
 	local scale = self.UserSettingsScale
 	local stroke = self.UserSettingsStroke
+	local blocker = self.UserSettingsInputBlocker
 	if not settings or not settings.Parent or not scale then return end
 
 	opened = opened == true
@@ -2551,11 +2580,18 @@ function Window:SetUserSettingsVisible(opened, instant)
 	self.UserSettingsOpened = opened
 	self._UserSettingsTweenToken = (self._UserSettingsTweenToken or 0) + 1
 	local token = self._UserSettingsTweenToken
-	local targetTransparency = self.UserSettingsBackgroundTransparency or 0.5
+	local targetTransparency = self.UserSettingsBackgroundTransparency or 0.4
 	local targetStrokeTransparency = self.UserSettingsStrokeTransparency or 0.18
 	local basePosition = self.UserSettingsBasePosition or settings.Position
 
 	if opened then
+		if self.Window and self.Window.Parent then
+			self.Window:SetAttribute("ApexForegroundInputBlocked", true)
+		end
+		if blocker and blocker.Parent then
+			blocker.Visible = true
+			blocker.Active = true
+		end
 		settings.Visible = true
 		settings.Position = basePosition + UDim2.new(0, 0, 0, -10)
 
@@ -2613,6 +2649,13 @@ function Window:SetUserSettingsVisible(opened, instant)
 			scale.Scale = 0.9
 			settings.Position = basePosition + UDim2.new(0, 0, 0, -8)
 			settings.Visible = false
+			if blocker and blocker.Parent then
+				blocker.Visible = false
+				blocker.Active = false
+			end
+			if self.Window and self.Window.Parent then
+				self.Window:SetAttribute("ApexForegroundInputBlocked", false)
+			end
 			return
 		end
 
@@ -2636,6 +2679,13 @@ function Window:SetUserSettingsVisible(opened, instant)
 			if self._UserSettingsTweenToken == token and not self.UserSettingsOpened and settings and settings.Parent then
 				settings.Visible = false
 				settings.Position = basePosition
+				if blocker and blocker.Parent then
+					blocker.Visible = false
+					blocker.Active = false
+				end
+				if self.Window and self.Window.Parent then
+					self.Window:SetAttribute("ApexForegroundInputBlocked", false)
+				end
 			end
 		end)
 	end
@@ -2967,6 +3017,28 @@ function Library.new(config)
 	-- it follows the current Apex palette and ZIndex stack.
 	-- ============================================================
 	local userSettingsBasePosition = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 10)
+
+	-- Foreground input blocker.
+	-- Roblox hit-testing can still pass through visually higher transparent frames
+	-- unless a real Active GuiObject sits above the background content.
+	-- This frame stays behind UserSettings, but above the window content, so
+	-- page/section hover strokes cannot trigger while the popup is open.
+	local userSettingsInputBlocker = Create("TextButton", {
+		Name = "UserSettingsInputBlocker",
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		Visible = false,
+		Active = true,
+		Selectable = false,
+		ZIndex = 130,
+		Parent = root,
+	})
+	userSettingsInputBlocker:SetAttribute("ApexForegroundLayer", true)
+
 	local userSettings = Create("Frame", {
 		Name = "UserSettings",
 		AnchorPoint = Vector2.new(1, 0),
@@ -2981,6 +3053,7 @@ function Library.new(config)
 		ZIndex = 140,
 		Parent = root,
 	})
+	userSettings:SetAttribute("ApexForegroundLayer", true)
 	Corner(8, userSettings)
 
 	local userSettingsScale = Create("UIScale", {
@@ -3144,7 +3217,8 @@ function Library.new(config)
 		UserSettings = userSettings,
 		UserSettingsScale = userSettingsScale,
 		UserSettingsStroke = userSettingsStroke,
-		UserSettingsBackgroundTransparency = 0.5,
+		UserSettingsInputBlocker = userSettingsInputBlocker,
+		UserSettingsBackgroundTransparency = 0.4,
 		UserSettingsStrokeTransparency = 0.18,
 		UserSettingsHitbox = userSettingsHitbox,
 		UserSettingsOpened = false,
