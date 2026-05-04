@@ -345,14 +345,14 @@ function UserSettingsSection:_Refresh()
 	local window = self.Window
 	if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
 		local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
-		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 90)
+		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 130)
 	end
 end
 
 function UserSettingsSection:_BaseElement(name, height)
 	local element = Create("Frame", {
 		Name = name or "Element",
-		Size = UDim2.new(1, -4, 0, height or 30),
+		Size = UDim2.new(1, -10, 0, height or 30),
 		BackgroundColor3 = THEME.BG_SEARCH,
 		BackgroundTransparency = 0.04,
 		BorderSizePixel = 0,
@@ -370,7 +370,7 @@ function UserSettingsSection:Button(first, second)
 	local callback = args.Callback or second
 	local button = Create("TextButton", {
 		Name = "Button",
-		Size = UDim2.new(1, -4, 0, tonumber(args.Height) or 30),
+		Size = UDim2.new(1, -10, 0, tonumber(args.Height) or 30),
 		BackgroundColor3 = args.Color or THEME.BG_ACTIVE,
 		BackgroundTransparency = args.Transparency or 0.05,
 		BorderSizePixel = 0,
@@ -2128,7 +2128,7 @@ function Window:UserSettingsSection(args)
 
 	local container = Create("Frame", {
 		Name = "UserSettingsSection_" .. name,
-		Size = UDim2.new(1, -2, 0, 84),
+		Size = UDim2.new(1, 0, 0, 84),
 		BackgroundColor3 = args.BackgroundColor or THEME.BG_BUTTON,
 		BackgroundTransparency = args.BackgroundTransparency ~= nil and args.BackgroundTransparency or 0.02,
 		BorderSizePixel = 0,
@@ -2179,8 +2179,8 @@ function Window:UserSettingsSection(args)
 	})
 	local elements = Create("Frame", {
 		Name = "Elements",
-		Size = UDim2.new(1, -34, 0, 0),
-		Position = UDim2.new(0, 15, 0, 66),
+		Size = UDim2.new(1, -24, 0, 0),
+		Position = UDim2.new(0, 12, 0, 66),
 		BackgroundTransparency = 1,
 		ZIndex = 144,
 		Parent = container,
@@ -2806,7 +2806,7 @@ function Library.new(config)
 		Parent = userSettings,
 	})
 	local userSettingsBodyLayout = ListLayout(userSettingsBody, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 8)
-	Padding(userSettingsBody, 6, 6, 18, 6)
+	Padding(userSettingsBody, 6, 4, 18, 4)
 
 	-- Hitbox only over the avatar/icon side, not the whole user text area.
 	local userSettingsHitbox = Create("TextButton", {
