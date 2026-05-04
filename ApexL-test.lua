@@ -325,310 +325,417 @@ Page.__index = Page
 local Window = {}
 Window.__index = Window
 
+-- ============================================================
+-- UserSettingsSection  (mirrors Section / Page:Section layout)
+-- ============================================================
+
 local UserSettingsSection = {}
 UserSettingsSection.__index = UserSettingsSection
 
+function UserSettingsSection:_UpdateSize()
+	local h = self.ElementsLayout.AbsoluteContentSize.Y
+	self.ElementsList.Size = UDim2.new(1, 0, 0, h)
+	self.ElementsClip.Size = UDim2.new(1, -36, 0, h)
+	self.Container.Size = UDim2.new(1, 0, 0, 52 + h + 18)
 
-local function ResolveUserSettingsArgs(first, second, defaultTitle)
-	local args = type(first) == "table" and first or { Title = first, Callback = second }
-	args.Title = tostring(args.Title or args.Name or args.Text or defaultTitle or "Element")
-	return args
-end
-
-function UserSettingsSection:_Refresh()
-    if self.ElementsLayout and self.ElementsList then
-        local height = self.ElementsLayout.AbsoluteContentSize.Y
-        self.ElementsList.Size = UDim2.new(1, 0, 0, height)
-        self.Container.Size = UDim2.new(1, 0, 0, math.max(84, 74 + height))
-    end
-
-    local window = self.Window
-    if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
-        local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
-        local bodyPad = window.UserSettingsBody:FindFirstChildOfClass("UIPadding")
-        local padY = 0
-        if bodyPad then
-            padY = bodyPad.PaddingTop.Offset + bodyPad.PaddingBottom.Offset
-        end
-        window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + padY + 24)
-    end
+	local window = self.Window
+	if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
+		local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
+		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 24)
+	end
 end
 
 function UserSettingsSection:_BaseElement(name, height)
 	local element = Create("Frame", {
-		Name = name or "Element",
-		Size = UDim2.new(1, -10, 0, height or 30),
-		BackgroundColor3 = THEME.BG_SEARCH,
-		BackgroundTransparency = 0.04,
+		Name = name,
+		Size = UDim2.new(1, 0, 0, height or 38),
+		BackgroundColor3 = THEME.BG_BUTTON,
+		BackgroundTransparency = 0.12,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 145,
+		ClipsDescendants = false,
+		ZIndex = 142,
 		Parent = self.ElementsList,
 	})
-	Corner(8, element)
-	Stroke(element, THEME.BORDER, 1).Transparency = 0.30
-	return element
+	Corner(9, element)
+	local elStroke = Stroke(element, THEME.BORDER, 1)
+	elStroke.Transparency = 0.25
+	element.MouseEnter:Connect(function()
+		TweenService:Create(elStroke, TW_FAST, { Color = Color3.fromRGB(87, 84, 104) }):Play()
+		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.04 }):Play()
+	end)
+	element.MouseLeave:Connect(function()
+		TweenService:Create(elStroke, TW_FAST, { Color = THEME.BORDER }):Play()
+		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.12 }):Play()
+	end)
+	return element, elStroke
 end
 
-function UserSettingsSection:Button(first, second)
-	local args = ResolveUserSettingsArgs(first, second, "Button")
-	local callback = args.Callback or second
-	local button = Create("TextButton", {
-		Name = "Button",
-		Size = UDim2.new(1, -10, 0, tonumber(args.Height) or 30),
-		BackgroundColor3 = args.Color or THEME.BG_ACTIVE,
-		BackgroundTransparency = args.Transparency or 0.05,
-		BorderSizePixel = 0,
-		Text = tostring(args.Title),
-		TextColor3 = args.TextColor or THEME.TEXT_SECONDARY,
+function UserSettingsSection:_Title(parent, title, desc)
+	Create("TextLabel", {
+		Name = "Title",
+		Size = UDim2.new(1, -118, 0, desc and 15 or 20),
+		Position = UDim2.new(0, 12, 0, desc and 6 or 9),
+		BackgroundTransparency = 1,
+		Text = tostring(title or "Element"),
 		Font = FONT_SEMI,
-		TextSize = tonumber(args.TextSize) or 12,
+		TextSize = 12,
+		TextColor3 = Color3.fromRGB(235, 231, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = parent.ZIndex + 1,
+		Parent = parent,
+	})
+	if desc then
+		Create("TextLabel", {
+			Name = "Desc",
+			Size = UDim2.new(1, -118, 0, 13),
+			Position = UDim2.new(0, 12, 0, 22),
+			BackgroundTransparency = 1,
+			Text = tostring(desc),
+			Font = FONT_REG,
+			TextSize = 10,
+			TextColor3 = Color3.fromRGB(145, 139, 170),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = parent.ZIndex + 1,
+			Parent = parent,
+		})
+	end
+end
+
+function UserSettingsSection:Label(text, desc)
+	local element = self:_BaseElement("SettingsLabel", desc and 44 or 38)
+	self:_Title(element, text or "Label", desc)
+	self:_UpdateSize()
+	return {
+		Instance = element,
+		Set = function(_, value)
+			local t = element:FindFirstChild("Title")
+			if t then t.Text = tostring(value) end
+		end,
+	}
+end
+
+function UserSettingsSection:Button(text, callback, desc)
+	local args = type(text) == "table" and text or nil
+	local title = args and (args.Title or args.Name or args.Text or "Button") or (text or "Button")
+	local cb = args and (args.Callback or callback) or callback
+	local descText = args and (args.Description or args.Desc) or desc
+
+	local element, buttonStroke = self:_BaseElement("SettingsButton", descText and 44 or 38)
+	self:_Title(element, title, descText)
+
+	local interact = Create("TextButton", {
+		Name = "Interact",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 144,
+		Parent = element,
+	})
+	local icon = Create("TextLabel", {
+		Size = UDim2.new(0, 24, 0, 24),
+		Position = UDim2.new(1, -36, 0.5, -12),
+		BackgroundTransparency = 1,
+		Text = "",
+		Font = FONT_BOLD,
+		TextSize = 17,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		ZIndex = 143,
+		Parent = element,
+	})
+	interact.MouseButton1Click:Connect(function()
+		TweenService:Create(buttonStroke, TW_FAST, { Color = Color3.fromRGB(136, 131, 163) }):Play()
+		TweenService:Create(icon, TW_FAST, { TextColor3 = Color3.fromRGB(236, 232, 255) }):Play()
+		task.delay(0.18, function()
+			if buttonStroke.Parent then
+				TweenService:Create(buttonStroke, TW_FAST, { Color = THEME.BORDER }):Play()
+				TweenService:Create(icon, TW_FAST, { TextColor3 = Color3.fromRGB(178, 170, 210) }):Play()
+			end
+		end)
+		SafeCallback(cb)
+	end)
+	self:_UpdateSize()
+	return {
+		Instance = element,
+		SetText = function(_, value)
+			local t = element:FindFirstChild("Title")
+			if t then t.Text = tostring(value) end
+		end,
+	}
+end
+
+function UserSettingsSection:Toggle(text, default, callback, desc)
+	local args = type(text) == "table" and text or nil
+	local title = args and (args.Title or args.Name or "Toggle") or (text or "Toggle")
+	local enabled = (args and args.Default or default) and true or false
+	local cb = args and (args.Callback or callback) or callback
+	local descText = args and (args.Description or args.Desc) or desc
+
+	local element = self:_BaseElement("SettingsToggle", descText and 44 or 38)
+	self:_Title(element, title, descText)
+
+	local track = Create("Frame", {
+		Name = "ToggleTrack",
+		Size = UDim2.new(0, 42, 0, 22),
+		Position = UDim2.new(1, -54, 0.5, -11),
+		BackgroundColor3 = enabled and Color3.fromRGB(82, 74, 118) or Color3.fromRGB(42, 39, 50),
+		BorderSizePixel = 0,
+		ZIndex = 143,
+		Parent = element,
+	})
+	Corner(11, track)
+	Stroke(track, THEME.BORDER, 1)
+	local knob = Create("Frame", {
+		Name = "ToggleKnob",
+		Size = UDim2.new(0, 16, 0, 16),
+		Position = enabled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+		BackgroundColor3 = enabled and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(145, 139, 170),
+		BorderSizePixel = 0,
+		ZIndex = 144,
+		Parent = track,
+	})
+	Corner(8, knob)
+	local button = Create("TextButton", {
+		Name = "Interact",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
 		AutoButtonColor = false,
 		ZIndex = 145,
-		Parent = self.ElementsList,
+		Parent = element,
 	})
-	Corner(8, button)
-	local stroke = Stroke(button, args.StrokeColor or THEME.ACCENT_BLUE, 1)
-	stroke.Transparency = args.StrokeTransparency or 0.48
-	HoverColor(button, button.BackgroundColor3, args.HoverColor or THEME.BG_HOVER)
-	button.MouseButton1Click:Connect(function()
-		SafeCallback(callback)
-	end)
-	task.defer(function() self:_Refresh() end)
-	return button
+
+	local object = {}
+	function object:Set(newValue, silent)
+		enabled = newValue and true or false
+		TweenService:Create(track, TW_MED, {
+			BackgroundColor3 = enabled and Color3.fromRGB(82, 74, 118) or Color3.fromRGB(42, 39, 50),
+		}):Play()
+		TweenService:Create(knob, TW_MED, {
+			Position = enabled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+			BackgroundColor3 = enabled and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(145, 139, 170),
+		}):Play()
+		if not silent then SafeCallback(cb, enabled) end
+	end
+	function object:Get() return enabled end
+	object.Instance = element
+
+	button.MouseButton1Click:Connect(function() object:Set(not enabled) end)
+	self:_UpdateSize()
+	return object
 end
 
-function UserSettingsSection:Dropdown(first)
-	local args = ResolveUserSettingsArgs(first, nil, "Dropdown")
-	local values = type(args.Values) == "table" and args.Values or type(args.Options) == "table" and args.Options or {}
-	local selected = args.Default or values[1] or "None"
-	local opened = false
+function UserSettingsSection:Keybind(text, default, callback, desc)
+	local args = type(text) == "table" and text or nil
+	local title = args and (args.Title or args.Name or "Keybind") or (text or "Keybind")
+	local current = GetKeyCode(args and (args.Default or args.Key or args.Value) or default, Enum.KeyCode.LeftAlt)
+	local cb = args and (args.Callback or callback) or callback
+	local descText = args and (args.Description or args.Desc) or desc
+	local listening = false
 
-	local holder = self:_BaseElement("Dropdown", 30)
-	local label = Create("TextLabel", {
-		Name = "DropdownText",
-		Size = UDim2.new(1, -36, 0, 30),
-		Position = UDim2.new(0, 10, 0, 0),
-		BackgroundTransparency = 1,
-		Text = tostring(args.Title) .. ": " .. tostring(selected),
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_REG,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 146,
-		Parent = holder,
-	})
-	local arrow = Create("ImageLabel", {
-		Name = "DropdownIcon",
-		Size = UDim2.new(0, 15, 0, 15),
-		Position = UDim2.new(1, -24, 0, 15 - 7),
-		BackgroundTransparency = 1,
-		Image = ResolveIcon("solar:alt-arrow-down-line-duotone"),
-		ImageColor3 = THEME.TEXT_MUTED,
-		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 146,
-		Parent = holder,
-	})
-	local list = Create("Frame", {
-		Name = "Options",
-		Size = UDim2.new(1, -12, 0, 0),
-		Position = UDim2.new(0, 6, 0, 33),
-		BackgroundTransparency = 1,
-		ClipsDescendants = true,
-		ZIndex = 146,
-		Parent = holder,
-	})
-	local listLayout = ListLayout(list, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 4)
+	local element = self:_BaseElement("SettingsKeybind", descText and 44 or 38)
+	self:_Title(element, title, descText)
 
-	local function setOpen(state)
-		opened = state == true
-		local h = opened and math.min(#values, 4) * 26 + math.max(#values - 1, 0) * 4 or 0
-		TweenService:Create(holder, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(1, 0, 0, 30 + h + (opened and 8 or 0))
-		}):Play()
-		TweenService:Create(list, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.new(1, -12, 0, h)
-		}):Play()
-		TweenService:Create(arrow, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Rotation = opened and 180 or 0
-		}):Play()
-		task.delay(0.19, function() self:_Refresh() end)
+	local button = Create("TextButton", {
+		Name = "BindButton",
+		Size = UDim2.new(0, 74, 0, 24),
+		Position = UDim2.new(1, -86, 0.5, -12),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BorderSizePixel = 0,
+		Text = current.Name,
+		Font = FONT_SEMI,
+		TextSize = 10,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		AutoButtonColor = false,
+		ZIndex = 143,
+		Parent = element,
+	})
+	Corner(7, button)
+	Stroke(button, THEME.BORDER, 1)
+	button.MouseButton1Click:Connect(function()
+		listening = true
+		button.Text = "..."
+	end)
+	local conn
+	conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed or not listening then return end
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			current = input.KeyCode
+			button.Text = current.Name
+			listening = false
+			SafeCallback(cb, current)
+		end
+	end)
+	if self.Window then table.insert(self.Window.Connections, conn) end
+	self:_UpdateSize()
+	return {
+		Instance = element,
+		Get = function() return current end,
+		Set = function(_, keyCode, silent)
+			current = GetKeyCode(keyCode, current)
+			button.Text = current.Name
+			if not silent then SafeCallback(cb, current) end
+		end,
+		Listening = function() return listening end,
+		Disconnect = function() if conn then conn:Disconnect() end end,
+	}
+end
+
+function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
+	local config = {}
+	if type(configOrTitle) == "table" then
+		config = configOrTitle
+	else
+		config.Title = tostring(configOrTitle or "Dropdown")
+		config.Values = values or {}
+		config.Default = default
+		config.Callback = callback
 	end
 
-	for _, value in ipairs(values) do
-		local option = Create("TextButton", {
-			Name = "Option",
+	local listValues = config.Values or config.Options or {}
+	local selected = config.Default or listValues[1] or "None"
+	local opened = false
+	local setOpen
+
+	local element = self:_BaseElement("SettingsDropdown", 38)
+	element.ClipsDescendants = true
+	self:_Title(element, config.Title or "Dropdown", config.Description)
+
+	local valueLabel = Create("TextLabel", {
+		Size = UDim2.new(0, 132, 0, 22),
+		Position = UDim2.new(1, -170, 0, 8),
+		BackgroundTransparency = 1,
+		Text = tostring(selected),
+		Font = FONT_REG,
+		TextSize = 12,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 143,
+		Parent = element,
+	})
+	local arrow = Create("TextLabel", {
+		Size = UDim2.new(0, 20, 0, 22),
+		Position = UDim2.new(1, -34, 0, 8),
+		BackgroundTransparency = 1,
+		Text = "",
+		Font = FONT_BOLD,
+		TextSize = 17,
+		TextColor3 = Color3.fromRGB(178, 170, 210),
+		ZIndex = 143,
+		Parent = element,
+	})
+
+	local menu = Create("Frame", {
+		Name = "Menu",
+		Size = UDim2.new(1, -8, 0, 0),
+		Position = UDim2.new(0, 4, 0, 48),
+		BackgroundColor3 = THEME.BG_SEARCH,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 144,
+		Parent = element,
+	})
+	Corner(CORNER_MD, menu)
+	local menuStroke = Stroke(menu, THEME.BORDER, 1)
+	menuStroke.Transparency = 1
+	Create("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(50, 50, 56)),
+			ColorSequenceKeypoint.new(0.25, Color3.fromRGB(120, 120, 132)),
+			ColorSequenceKeypoint.new(0.50, Color3.fromRGB(155, 155, 168)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(120, 120, 132)),
+			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(50, 50, 56)),
+		}),
+		Parent = menuStroke,
+	})
+	Padding(menu, 6, 6, 6, 6)
+	ListLayout(menu, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, 4)
+
+	local itemButtons = {}
+
+	setOpen = function(state)
+		if opened == state then return end
+		opened = state
+		local h = opened and math.min(#listValues, 4) * 30 or 0
+		TweenService:Create(element, TW_DROPDOWN, {
+			Size = UDim2.new(1, 0, 0, 38 + h + (opened and 8 or 0)),
+		}):Play()
+		TweenService:Create(menu, TW_DROPDOWN, {
+			Size = UDim2.new(1, -8, 0, h),
+			BackgroundTransparency = opened and 0 or 1,
+		}):Play()
+		TweenService:Create(menuStroke, TW_FAST, { Transparency = opened and 0 or 1 }):Play()
+		TweenService:Create(arrow, TW_DROPDOWN, { Rotation = opened and 180 or 0 }):Play()
+		task.delay(0.19, function() self:_UpdateSize() end)
+	end
+
+	for _, valueItem in ipairs(listValues) do
+		local item = Create("TextButton", {
+			Name = "Item",
 			Size = UDim2.new(1, 0, 0, 26),
 			BackgroundColor3 = THEME.BG_BUTTON,
 			BackgroundTransparency = 0.03,
 			BorderSizePixel = 0,
-			Text = tostring(value),
+			Text = tostring(valueItem),
 			TextColor3 = THEME.TEXT_SECONDARY,
 			Font = FONT_REG,
 			TextSize = 11,
 			AutoButtonColor = false,
-			ZIndex = 147,
-			Parent = list,
+			ZIndex = 145,
+			Parent = menu,
 		})
-		Corner(7, option)
-		HoverColor(option, THEME.BG_BUTTON, THEME.BG_HOVER)
-		option.MouseButton1Click:Connect(function()
-			selected = value
-			label.Text = tostring(args.Title) .. ": " .. tostring(selected)
+		Corner(7, item)
+		HoverColor(item, THEME.BG_BUTTON, THEME.BG_HOVER)
+		itemButtons[valueItem] = item
+		item.MouseButton1Click:Connect(function()
+			selected = valueItem
+			valueLabel.Text = tostring(selected)
 			setOpen(false)
-			SafeCallback(args.Callback, selected)
+			SafeCallback(config.Callback, selected)
 		end)
 	end
 
-	holder.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			setOpen(not opened)
-		end
-	end)
-
-	task.defer(function() self:_Refresh() end)
-	return {
-		Set = function(_, value)
-			selected = value
-			label.Text = tostring(args.Title) .. ": " .. tostring(selected)
-			SafeCallback(args.Callback, selected)
-		end,
-		Get = function() return selected end,
-		Instance = holder,
-	}
-end
-
-function UserSettingsSection:Keybind(first)
-	local args = ResolveUserSettingsArgs(first, nil, "Keybind")
-	local key = GetKeyCode(args.Default or args.Key or args.Value, Enum.KeyCode.LeftAlt)
-	local waiting = false
-	local element = self:_BaseElement("Keybind", 30)
-	Create("TextLabel", {
-		Name = "KeybindText",
-		Size = UDim2.new(1, -76, 1, 0),
-		Position = UDim2.new(0, 10, 0, 0),
+	local trigger = Create("TextButton", {
+		Name = "Trigger",
+		Size = UDim2.new(1, 0, 0, 38),
 		BackgroundTransparency = 1,
-		Text = tostring(args.Title),
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_REG,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 146,
-		Parent = element,
-	})
-	local keyBox = Create("TextButton", {
-		Name = "KeyBox",
-		Size = UDim2.new(0, 54, 0, 20),
-		Position = UDim2.new(1, -64, 0.5, -10),
-		BackgroundColor3 = THEME.BG_ACTIVE,
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		Text = key.Name,
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_SEMI,
-		TextSize = 9,
-		AutoButtonColor = false,
-		ZIndex = 146,
-		Parent = element,
-	})
-	Corner(6, keyBox)
-	keyBox.MouseButton1Click:Connect(function()
-		waiting = true
-		keyBox.Text = "..."
-	end)
-	local conn
-	conn = UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or not waiting then return end
-		if input.UserInputType == Enum.UserInputType.Keyboard then
-			waiting = false
-			key = input.KeyCode
-			keyBox.Text = key.Name
-			SafeCallback(args.Callback, key)
-		end
-	end)
-	if self.Window then table.insert(self.Window.Connections, conn) end
-	task.defer(function() self:_Refresh() end)
-	return {
-		Set = function(_, value)
-			key = GetKeyCode(value, key)
-			keyBox.Text = key.Name
-		end,
-		Get = function() return key end,
-		Instance = element,
-	}
-end
-
-function UserSettingsSection:Toggle(first, second, third)
-	local args = type(first) == "table" and first or { Title = first, Default = second, Callback = third }
-	args.Title = tostring(args.Title or args.Name or "Toggle")
-	local enabled = args.Default == true
-	local element = self:_BaseElement("Toggle", 30)
-	Create("TextLabel", {
-		Name = "ToggleText",
-		Size = UDim2.new(1, -64, 1, 0),
-		Position = UDim2.new(0, 10, 0, 0),
-		BackgroundTransparency = 1,
-		Text = args.Title,
-		TextColor3 = THEME.TEXT_SECONDARY,
-		Font = FONT_REG,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 146,
-		Parent = element,
-	})
-	local switch = Create("TextButton", {
-		Name = "Switch",
-		Size = UDim2.new(0, 42, 0, 20),
-		Position = UDim2.new(1, -52, 0.5, -10),
-		BackgroundColor3 = enabled and THEME.ACCENT_BLUE or THEME.BG_BUTTON,
-		BackgroundTransparency = 0.06,
-		BorderSizePixel = 0,
 		Text = "",
 		AutoButtonColor = false,
-		ZIndex = 146,
+		ZIndex = 143,
 		Parent = element,
 	})
-	Corner(10, switch)
-	local knob = Create("Frame", {
-		Name = "Knob",
-		Size = UDim2.new(0, 14, 0, 14),
-		Position = enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
-		BackgroundColor3 = THEME.TEXT_SECONDARY,
-		BorderSizePixel = 0,
-		ZIndex = 147,
-		Parent = switch,
-	})
-	Corner(999, knob)
-	local function set(value)
-		enabled = value == true
-		TweenService:Create(switch, TW_FAST, { BackgroundColor3 = enabled and THEME.ACCENT_BLUE or THEME.BG_BUTTON }):Play()
-		TweenService:Create(knob, TW_FAST, { Position = enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7) }):Play()
-		SafeCallback(args.Callback, enabled)
-	end
-	switch.MouseButton1Click:Connect(function() set(not enabled) end)
-	task.defer(function() self:_Refresh() end)
-	return { Set = function(_, v) set(v) end, Get = function() return enabled end, Instance = element }
+	trigger.MouseButton1Click:Connect(function() setOpen(not opened) end)
+
+	self:_UpdateSize()
+	return {
+		Instance = element,
+		Set = function(_, newValue, silent)
+			selected = newValue
+			valueLabel.Text = tostring(selected)
+			if not silent then SafeCallback(config.Callback, selected) end
+		end,
+		Get = function() return selected end,
+		Open = function() setOpen(true) end,
+		Close = function() setOpen(false) end,
+	}
 end
 
 function UserSettingsSection:Special(first)
-	local args = ResolveUserSettingsArgs(first, nil, "Special")
-	local element = self:_BaseElement(args.Name or "Special", tonumber(args.Height) or 34)
+	local args = type(first) == "table" and first or { Title = first }
+	args.Title = tostring(args.Title or args.Name or "Special")
+
+	local element = self:_BaseElement(args.Name or "SettingsSpecial", tonumber(args.Height) or 38)
 	if type(args.Render) == "function" then
 		SafeCallback(args.Render, element, self.Window, self)
 	else
-		Create("TextLabel", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Text = tostring(args.Title),
-			TextColor3 = THEME.TEXT_SECONDARY,
-			Font = FONT_REG,
-			TextSize = 11,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			ZIndex = 146,
-			Parent = element,
-		})
+		self:_Title(element, args.Title, args.Description)
 	end
-	task.defer(function() self:_Refresh() end)
+	self:_UpdateSize()
 	return element
 end
 
@@ -2131,76 +2238,125 @@ function Window:UserSettingsSection(args)
 	local description = tostring(args.Description or args.Subtitle or args.Sub or "")
 	if not self.UserSettingsBody then return nil end
 
+	-- Container (mirrors Page:Section sectionFrame)
 	local container = Create("Frame", {
 		Name = "UserSettingsSection_" .. name,
-		Size = UDim2.new(1, 0, 0, 84),
-		BackgroundColor3 = args.BackgroundColor or THEME.BG_BUTTON,
-		BackgroundTransparency = args.BackgroundTransparency ~= nil and args.BackgroundTransparency or 0.02,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 142,
-		Parent = self.UserSettingsBody,
-	})
-	Corner(9, container)
-	local stroke = Stroke(container, args.StrokeColor or THEME.BORDER, 1)
-	stroke.Transparency = args.StrokeTransparency ~= nil and args.StrokeTransparency or 0.18
-
-	local accent = Create("Frame", {
-		Name = "SectionAccent",
-		Size = UDim2.new(0, 3, 0, 32),
-		Position = UDim2.new(0, 11, 0, 14),
-		BackgroundColor3 = args.AccentColor or THEME.ACCENT_BLUE,
+		Size = UDim2.new(1, 0, 0, 0),
+		BackgroundColor3 = THEME.BG_SIDEBAR,
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-		ZIndex = 143,
+		ClipsDescendants = false,
+		ZIndex = 140,
+		LayoutOrder = #self.UserSettingsSections + 1,
+		Parent = self.UserSettingsBody,
+	})
+	Corner(CORNER_MD, container)
+
+	local sectionStroke = Create("UIStroke", {
+		Color = Color3.fromRGB(142, 142, 150),
+		Transparency = 0,
+		Thickness = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
 		Parent = container,
 	})
-	Corner(3, accent)
+	Create("UIGradient", {
+		Name = "SectionStrokeFade",
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(72, 72, 78)),
+			ColorSequenceKeypoint.new(0.50, Color3.fromRGB(150, 150, 158)),
+			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(72, 72, 78)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.00, 1.00),
+			NumberSequenceKeypoint.new(0.18, 0.34),
+			NumberSequenceKeypoint.new(0.50, 0.06),
+			NumberSequenceKeypoint.new(0.82, 0.34),
+			NumberSequenceKeypoint.new(1.00, 1.00),
+		}),
+		Parent = sectionStroke,
+	})
+
+	-- Header (mirrors Page:Section header)
+	local header = Create("Frame", {
+		Name = "SectionHeader",
+		Size = UDim2.new(1, 0, 0, 48),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 141,
+		Parent = container,
+	})
+	Padding(header, 0, 16, 0, 16)
+
 	Create("TextLabel", {
-		Name = "Title",
-		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 24, 0, 13),
+		Name = "TabSection",
+		Size = UDim2.new(1, -88, 0, 18),
+		Position = UDim2.new(0, 0, 0, 12),
 		BackgroundTransparency = 1,
 		Text = name,
-		TextColor3 = THEME.TEXT_PRIMARY,
-		Font = FONT_SEMI,
-		TextSize = 13,
+		Font = FONT_BOLD,
+		TextSize = 15,
+		TextColor3 = Color3.fromRGB(236, 232, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 143,
-		Parent = container,
+		ZIndex = 142,
+		Parent = header,
 	})
 	Create("TextLabel", {
-		Name = "Sub",
-		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 24, 0, 34),
+		Name = "Subtitle",
+		Size = UDim2.new(1, -88, 0, 14),
+		Position = UDim2.new(0, 0, 0, 30),
 		BackgroundTransparency = 1,
-		Text = description,
-		TextColor3 = THEME.TEXT_MUTED,
+		Text = description ~= "" and description or "Settings controls",
 		Font = FONT_REG,
 		TextSize = 11,
+		TextColor3 = Color3.fromRGB(145, 139, 170),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 143,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 142,
+		Parent = header,
+	})
+
+	-- ElementsClip (mirrors Page:Section elementsClip)
+	local elementsClip = Create("Frame", {
+		Name = "ElementsClip",
+		Size = UDim2.new(1, -36, 0, 0),
+		Position = UDim2.new(0, 18, 0, 52),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 141,
 		Parent = container,
 	})
-	local elements = Create("Frame", {
-    Name = "Elements",
-    Size = UDim2.new(1, -22, 0, 0),
-    Position = UDim2.new(0, 9, 0, 66),
-    BackgroundTransparency = 1,
-    ZIndex = 144,
-    Parent = container,
-})
-	local layout = ListLayout(elements, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 6)
+	local elementsList = Create("Frame", {
+		Name = "ElementsList",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 141,
+		Parent = elementsClip,
+	})
+	local elementsLayout = ListLayout(elementsList, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, 8)
 
 	local section = setmetatable({
 		Window = self,
 		Container = container,
-		ElementsList = elements,
-		ElementsLayout = layout,
+		Header = header,
+		ElementsClip = elementsClip,
+		ElementsList = elementsList,
+		ElementsLayout = elementsLayout,
 	}, UserSettingsSection)
 
 	table.insert(self.UserSettingsSections, section)
-	task.defer(function() section:_Refresh() end)
+
+	elementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		section:_UpdateSize()
+	end)
+	task.defer(function() section:_UpdateSize() end)
+
 	return section
 end
 
