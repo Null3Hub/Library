@@ -1806,6 +1806,9 @@ function Window:_SetActivePage(page)
 	for _, p in ipairs(self.Pages) do
 		local selected = p == page
 		p.Viewport.Visible = selected
+		if p.Viewport and p.Viewport.Parent then
+			p.Viewport:SetAttribute("ApexForegroundInputBlocked", self.UserSettingsOpened and selected or false)
+		end
 		TweenService:Create(p.Nav.ActiveBar, TW_FAST, {
 			Size = selected and UDim2.new(0, 3, 0.54, 0) or UDim2.new(0, 0, 0.54, 0),
 		}):Play()
@@ -2597,8 +2600,11 @@ function Window:SetUserSettingsVisible(opened, instant)
 	local basePosition = self.UserSettingsBasePosition or settings.Position
 
 	if opened then
-		if self.Window and self.Window.Parent then
-			self.Window:SetAttribute("ApexForegroundInputBlocked", true)
+		-- Only mark the active page viewport as input-blocked for hover guards.
+		-- Do not mark the whole window, otherwise the topbar/sidebar/drag region
+		-- behaves like it is behind a modal layer.
+		if self.CurrentPage and self.CurrentPage.Viewport and self.CurrentPage.Viewport.Parent then
+			self.CurrentPage.Viewport:SetAttribute("ApexForegroundInputBlocked", true)
 		end
 		if blocker and blocker.Parent then
 			blocker.Visible = true
@@ -2665,8 +2671,10 @@ function Window:SetUserSettingsVisible(opened, instant)
 				blocker.Visible = false
 				blocker.Active = false
 			end
-			if self.Window and self.Window.Parent then
-				self.Window:SetAttribute("ApexForegroundInputBlocked", false)
+			for _, page in ipairs(self.Pages or {}) do
+				if page.Viewport and page.Viewport.Parent then
+					page.Viewport:SetAttribute("ApexForegroundInputBlocked", false)
+				end
 			end
 			return
 		end
@@ -2695,8 +2703,10 @@ function Window:SetUserSettingsVisible(opened, instant)
 					blocker.Visible = false
 					blocker.Active = false
 				end
-				if self.Window and self.Window.Parent then
-					self.Window:SetAttribute("ApexForegroundInputBlocked", false)
+				for _, page in ipairs(self.Pages or {}) do
+					if page.Viewport and page.Viewport.Parent then
+						page.Viewport:SetAttribute("ApexForegroundInputBlocked", false)
+					end
 				end
 			end
 		end)
@@ -3062,13 +3072,13 @@ function Library.new(config)
 		Parent = userSettings,
 	})
 
-	-- Invisible input blocker behind the popup but above all main content.
-	-- When the User Settings popup is open this frame is Visible + Active,
-	-- absorbing every click/hover so nothing underneath can react.
+	-- Invisible input blocker behind the popup, but limited to the page content/sections area.
+	-- This prevents page section hover/click bleed-through while keeping the window drag,
+	-- topbar, user block, sidebar and macOS buttons usable while UserSettings is open.
 	local userSettingsInputBlocker = Create("TextButton", {
 		Name = "UserSettingsInputBlocker",
-		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.new(1, 0, 1, -TOPBAR_H),
+		Position = UDim2.new(0, 0, 0, TOPBAR_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = "",
@@ -3077,7 +3087,7 @@ function Library.new(config)
 		Visible = false,
 		Selectable = false,
 		ZIndex = 130,
-		Parent = root,
+		Parent = contentArea,
 	})
 	userSettingsInputBlocker:SetAttribute("ApexForegroundLayer", true)
 
