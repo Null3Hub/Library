@@ -335,20 +335,20 @@ UserSettingsSection.__index = UserSettingsSection
 function UserSettingsSection:_UpdateSize()
 	local h = self.ElementsLayout.AbsoluteContentSize.Y
 	self.ElementsList.Size = UDim2.new(1, 0, 0, h)
-	self.ElementsClip.Size = UDim2.new(1, -36, 0, h)
-	self.Container.Size = UDim2.new(1, 0, 0, 52 + h + 18)
+	self.ElementsClip.Size = UDim2.new(1, -32, 0, h)
+	self.Container.Size = UDim2.new(1, 0, 0, 46 + h + 14)
 
 	local window = self.Window
 	if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
 		local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
-		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 24)
+		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 28)
 	end
 end
 
 function UserSettingsSection:_BaseElement(name, height)
 	local element = Create("Frame", {
 		Name = name,
-		Size = UDim2.new(1, 0, 0, height or 38),
+		Size = UDim2.new(1, 0, 0, height or 34),
 		BackgroundColor3 = THEME.BG_BUTTON,
 		BackgroundTransparency = 0.12,
 		BorderSizePixel = 0,
@@ -356,7 +356,7 @@ function UserSettingsSection:_BaseElement(name, height)
 		ZIndex = 142,
 		Parent = self.ElementsList,
 	})
-	Corner(9, element)
+	Corner(8, element)
 	local elStroke = Stroke(element, THEME.BORDER, 1)
 	elStroke.Transparency = 0.25
 	element.MouseEnter:Connect(function()
@@ -373,12 +373,12 @@ end
 function UserSettingsSection:_Title(parent, title, desc)
 	Create("TextLabel", {
 		Name = "Title",
-		Size = UDim2.new(1, -118, 0, desc and 15 or 20),
-		Position = UDim2.new(0, 12, 0, desc and 6 or 9),
+		Size = UDim2.new(1, -108, 0, desc and 14 or 18),
+		Position = UDim2.new(0, 11, 0, desc and 5 or 8),
 		BackgroundTransparency = 1,
 		Text = tostring(title or "Element"),
 		Font = FONT_SEMI,
-		TextSize = 12,
+		TextSize = 11,
 		TextColor3 = Color3.fromRGB(235, 231, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -388,12 +388,12 @@ function UserSettingsSection:_Title(parent, title, desc)
 	if desc then
 		Create("TextLabel", {
 			Name = "Desc",
-			Size = UDim2.new(1, -118, 0, 13),
-			Position = UDim2.new(0, 12, 0, 22),
+			Size = UDim2.new(1, -108, 0, 12),
+			Position = UDim2.new(0, 11, 0, 20),
 			BackgroundTransparency = 1,
 			Text = tostring(desc),
 			Font = FONT_REG,
-			TextSize = 10,
+			TextSize = 9,
 			TextColor3 = Color3.fromRGB(145, 139, 170),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -403,8 +403,82 @@ function UserSettingsSection:_Title(parent, title, desc)
 	end
 end
 
+function UserSettingsSection:SetTitle(value)
+	if self.TitleLabel then
+		self.TitleLabel.Text = tostring(value or "Section")
+	end
+	return self
+end
+
+function UserSettingsSection:SetDescription(value)
+	if self.SubtitleLabel then
+		self.SubtitleLabel.Text = tostring(value or "")
+	end
+	return self
+end
+
+function UserSettingsSection:SetIcon(icon, iconType)
+	if not self.Header then return self end
+
+	local hasIcon = icon ~= nil and tostring(icon) ~= ""
+	if not hasIcon then
+		if self.SectionIcon then
+			self.SectionIcon:Destroy()
+			self.SectionIcon = nil
+		end
+		if self.TitleLabel then
+			self.TitleLabel.Position = UDim2.new(0, 0, 0, 10)
+			self.TitleLabel.Size = UDim2.new(1, -88, 0, 17)
+		end
+		if self.SubtitleLabel then
+			self.SubtitleLabel.Position = UDim2.new(0, 0, 0, 28)
+			self.SubtitleLabel.Size = UDim2.new(1, -88, 0, 13)
+		end
+		return self
+	end
+
+	if not self.SectionIcon then
+		self.SectionIcon = Create("ImageLabel", {
+			Name = "SectionIcon",
+			Size = UDim2.new(0, 19, 0, 19),
+			Position = UDim2.new(0, 0, 0, 12),
+			BackgroundTransparency = 1,
+			ImageColor3 = Color3.fromRGB(236, 232, 255),
+			ImageTransparency = 0.03,
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 142,
+			Parent = self.Header,
+		})
+	end
+
+	self.SectionIcon.Image = ResolveIcon(icon, iconType or (self.Window and self.Window.IconsType) or Library.IconsType)
+	if self.TitleLabel then
+		self.TitleLabel.Position = UDim2.new(0, 27, 0, 10)
+		self.TitleLabel.Size = UDim2.new(1, -115, 0, 17)
+	end
+	if self.SubtitleLabel then
+		self.SubtitleLabel.Position = UDim2.new(0, 27, 0, 28)
+		self.SubtitleLabel.Size = UDim2.new(1, -115, 0, 13)
+	end
+	return self
+end
+
+function UserSettingsSection:Configure(args)
+	args = type(args) == "table" and args or {}
+	if args.Name or args.Title then
+		self:SetTitle(args.Name or args.Title)
+	end
+	if args.Description or args.Subtitle or args.Sub or args.Desc then
+		self:SetDescription(args.Description or args.Subtitle or args.Sub or args.Desc)
+	end
+	if args.Icon ~= nil or args.Icone ~= nil or args.Image ~= nil then
+		self:SetIcon(args.Icon or args.Icone or args.Image, args.IconType or args.IconsType)
+	end
+	return self
+end
+
 function UserSettingsSection:Label(text, desc)
-	local element = self:_BaseElement("SettingsLabel", desc and 44 or 38)
+	local element = self:_BaseElement("SettingsLabel", desc and 40 or 34)
 	self:_Title(element, text or "Label", desc)
 	self:_UpdateSize()
 	return {
@@ -422,7 +496,7 @@ function UserSettingsSection:Button(text, callback, desc)
 	local cb = args and (args.Callback or callback) or callback
 	local descText = args and (args.Description or args.Desc) or desc
 
-	local element, buttonStroke = self:_BaseElement("SettingsButton", descText and 44 or 38)
+	local element, buttonStroke = self:_BaseElement("SettingsButton", descText and 40 or 34)
 	self:_Title(element, title, descText)
 
 	local interact = Create("TextButton", {
@@ -473,30 +547,30 @@ function UserSettingsSection:Toggle(text, default, callback, desc)
 	local cb = args and (args.Callback or callback) or callback
 	local descText = args and (args.Description or args.Desc) or desc
 
-	local element = self:_BaseElement("SettingsToggle", descText and 44 or 38)
+	local element = self:_BaseElement("SettingsToggle", descText and 40 or 34)
 	self:_Title(element, title, descText)
 
 	local track = Create("Frame", {
 		Name = "ToggleTrack",
-		Size = UDim2.new(0, 42, 0, 22),
-		Position = UDim2.new(1, -54, 0.5, -11),
+		Size = UDim2.new(0, 38, 0, 20),
+		Position = UDim2.new(1, -50, 0.5, -10),
 		BackgroundColor3 = enabled and Color3.fromRGB(82, 74, 118) or Color3.fromRGB(42, 39, 50),
 		BorderSizePixel = 0,
 		ZIndex = 143,
 		Parent = element,
 	})
-	Corner(11, track)
+	Corner(10, track)
 	Stroke(track, THEME.BORDER, 1)
 	local knob = Create("Frame", {
 		Name = "ToggleKnob",
-		Size = UDim2.new(0, 16, 0, 16),
-		Position = enabled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+		Size = UDim2.new(0, 14, 0, 14),
+		Position = enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
 		BackgroundColor3 = enabled and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(145, 139, 170),
 		BorderSizePixel = 0,
 		ZIndex = 144,
 		Parent = track,
 	})
-	Corner(8, knob)
+	Corner(7, knob)
 	local button = Create("TextButton", {
 		Name = "Interact",
 		Size = UDim2.fromScale(1, 1),
@@ -514,7 +588,7 @@ function UserSettingsSection:Toggle(text, default, callback, desc)
 			BackgroundColor3 = enabled and Color3.fromRGB(82, 74, 118) or Color3.fromRGB(42, 39, 50),
 		}):Play()
 		TweenService:Create(knob, TW_MED, {
-			Position = enabled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+			Position = enabled and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
 			BackgroundColor3 = enabled and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(145, 139, 170),
 		}):Play()
 		if not silent then SafeCallback(cb, enabled) end
@@ -535,13 +609,13 @@ function UserSettingsSection:Keybind(text, default, callback, desc)
 	local descText = args and (args.Description or args.Desc) or desc
 	local listening = false
 
-	local element = self:_BaseElement("SettingsKeybind", descText and 44 or 38)
+	local element = self:_BaseElement("SettingsKeybind", descText and 40 or 34)
 	self:_Title(element, title, descText)
 
 	local button = Create("TextButton", {
 		Name = "BindButton",
-		Size = UDim2.new(0, 74, 0, 24),
-		Position = UDim2.new(1, -86, 0.5, -12),
+		Size = UDim2.new(0, 68, 0, 22),
+		Position = UDim2.new(1, -80, 0.5, -11),
 		BackgroundColor3 = THEME.BG_SEARCH,
 		BorderSizePixel = 0,
 		Text = current.Name,
@@ -599,13 +673,13 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 	local opened = false
 	local setOpen
 
-	local element = self:_BaseElement("SettingsDropdown", 38)
+	local element = self:_BaseElement("SettingsDropdown", 34)
 	element.ClipsDescendants = true
 	self:_Title(element, config.Title or "Dropdown", config.Description)
 
 	local valueLabel = Create("TextLabel", {
-		Size = UDim2.new(0, 132, 0, 22),
-		Position = UDim2.new(1, -170, 0, 8),
+		Size = UDim2.new(0, 118, 0, 20),
+		Position = UDim2.new(1, -154, 0, 7),
 		BackgroundTransparency = 1,
 		Text = tostring(selected),
 		Font = FONT_REG,
@@ -616,14 +690,16 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 		ZIndex = 143,
 		Parent = element,
 	})
-	local arrow = Create("TextLabel", {
-		Size = UDim2.new(0, 20, 0, 22),
-		Position = UDim2.new(1, -34, 0, 8),
+	local arrow = Create("ImageLabel", {
+		Name = "Chevron",
+		Size = UDim2.new(0, 16, 0, 16),
+		Position = UDim2.new(1, -30, 0.5, -8),
 		BackgroundTransparency = 1,
-		Text = "",
-		Font = FONT_BOLD,
-		TextSize = 17,
-		TextColor3 = Color3.fromRGB(178, 170, 210),
+		Image = ResolveIcon("solar:alt-arrow-up-linear"),
+		ImageColor3 = Color3.fromRGB(178, 170, 210),
+		ImageTransparency = 0.08,
+		Rotation = 180,
+		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 143,
 		Parent = element,
 	})
@@ -631,7 +707,7 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 	local menu = Create("Frame", {
 		Name = "Menu",
 		Size = UDim2.new(1, -8, 0, 0),
-		Position = UDim2.new(0, 4, 0, 48),
+		Position = UDim2.new(0, 4, 0, 42),
 		BackgroundColor3 = THEME.BG_SEARCH,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -661,23 +737,27 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 	setOpen = function(state)
 		if opened == state then return end
 		opened = state
-		local h = opened and math.min(#listValues, 4) * 30 or 0
+		local h = opened and math.min(#listValues, 4) * 28 or 0
 		TweenService:Create(element, TW_DROPDOWN, {
-			Size = UDim2.new(1, 0, 0, 38 + h + (opened and 8 or 0)),
+			Size = UDim2.new(1, 0, 0, 34 + h + (opened and 8 or 0)),
 		}):Play()
 		TweenService:Create(menu, TW_DROPDOWN, {
 			Size = UDim2.new(1, -8, 0, h),
 			BackgroundTransparency = opened and 0 or 1,
 		}):Play()
 		TweenService:Create(menuStroke, TW_FAST, { Transparency = opened and 0 or 1 }):Play()
-		TweenService:Create(arrow, TW_DROPDOWN, { Rotation = opened and 180 or 0 }):Play()
+		TweenService:Create(arrow, TW_DROPDOWN, {
+			Rotation = opened and 0 or 180,
+			ImageColor3 = opened and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(178, 170, 210),
+			ImageTransparency = opened and 0 or 0.08,
+		}):Play()
 		task.delay(0.19, function() self:_UpdateSize() end)
 	end
 
 	for _, valueItem in ipairs(listValues) do
 		local item = Create("TextButton", {
 			Name = "Item",
-			Size = UDim2.new(1, 0, 0, 26),
+			Size = UDim2.new(1, 0, 0, 24),
 			BackgroundColor3 = THEME.BG_BUTTON,
 			BackgroundTransparency = 0.03,
 			BorderSizePixel = 0,
@@ -702,7 +782,7 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 
 	local trigger = Create("TextButton", {
 		Name = "Trigger",
-		Size = UDim2.new(1, 0, 0, 38),
+		Size = UDim2.new(1, 0, 0, 34),
 		BackgroundTransparency = 1,
 		Text = "",
 		AutoButtonColor = false,
@@ -729,7 +809,7 @@ function UserSettingsSection:Special(first)
 	local args = type(first) == "table" and first or { Title = first }
 	args.Title = tostring(args.Title or args.Name or "Special")
 
-	local element = self:_BaseElement(args.Name or "SettingsSpecial", tonumber(args.Height) or 38)
+	local element = self:_BaseElement(args.Name or "SettingsSpecial", tonumber(args.Height) or 34)
 	if type(args.Render) == "function" then
 		SafeCallback(args.Render, element, self.Window, self)
 	else
@@ -1117,14 +1197,16 @@ function Section:Dropdown(configOrTitle, values, default, callback)
 		ZIndex = 12,
 		Parent = trigger,
 	})
-	local arrow = Create("TextLabel", {
-		Size = UDim2.new(0, 20, 0, 22),
-		Position = UDim2.new(1, -34, 0, 10),
+	local arrow = Create("ImageLabel", {
+		Name = "Chevron",
+		Size = UDim2.new(0, 16, 0, 16),
+		Position = UDim2.new(1, -30, 0.5, -8),
 		BackgroundTransparency = 1,
-		Text = "⌄",
-		Font = FONT_BOLD,
-		TextSize = 17,
-		TextColor3 = Color3.fromRGB(178, 170, 210),
+		Image = ResolveIcon("solar:alt-arrow-up-linear"),
+		ImageColor3 = Color3.fromRGB(178, 170, 210),
+		ImageTransparency = 0.08,
+		Rotation = 180,
+		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 12,
 		Parent = trigger,
 	})
@@ -1352,8 +1434,9 @@ function Section:Dropdown(configOrTitle, values, default, callback)
 		TweenService:Create(menuStroke, TW_FAST, { Transparency = open and 0 or 1 }):Play()
 		if elStroke then TweenService:Create(elStroke, TW_FAST, { Color = open and Color3.fromRGB(87, 84, 104) or THEME.BORDER }):Play() end
 		TweenService:Create(arrow, TW_DROPDOWN, {
-			Rotation = open and 180 or 0,
-			TextColor3 = open and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(178, 170, 210),
+			Rotation = open and 0 or 180,
+			ImageColor3 = open and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(178, 170, 210),
+			ImageTransparency = open and 0 or 0.08,
 		}):Play()
 		if not open and searchBox then
 			searchBox.Text = ""
@@ -2281,48 +2364,67 @@ function Window:UserSettingsSection(args)
 	-- Header (mirrors Page:Section header)
 	local header = Create("Frame", {
 		Name = "SectionHeader",
-		Size = UDim2.new(1, 0, 0, 48),
+		Size = UDim2.new(1, 0, 0, 44),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 141,
 		Parent = container,
 	})
-	Padding(header, 0, 16, 0, 16)
+	Padding(header, 0, 14, 0, 14)
 
-	Create("TextLabel", {
+	local sectionIconSource = args.Icon or args.Icone or args.Image
+	local sectionIcon
+	local textOffset = 0
+	if sectionIconSource then
+		sectionIcon = Create("ImageLabel", {
+			Name = "SectionIcon",
+			Size = UDim2.new(0, 19, 0, 19),
+			Position = UDim2.new(0, 0, 0, 12),
+			BackgroundTransparency = 1,
+			Image = ResolveIcon(sectionIconSource, args.IconType or args.IconsType or self.IconsType or Library.IconsType),
+			ImageColor3 = Color3.fromRGB(236, 232, 255),
+			ImageTransparency = 0.03,
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 142,
+			Parent = header,
+		})
+		textOffset = 27
+	end
+
+	local titleLabel = Create("TextLabel", {
 		Name = "TabSection",
-		Size = UDim2.new(1, -88, 0, 18),
-		Position = UDim2.new(0, 0, 0, 12),
+		Size = UDim2.new(1, -(88 + textOffset), 0, 17),
+		Position = UDim2.new(0, textOffset, 0, 10),
 		BackgroundTransparency = 1,
 		Text = name,
 		Font = FONT_BOLD,
-		TextSize = 15,
+		TextSize = 14,
 		TextColor3 = Color3.fromRGB(236, 232, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 142,
 		Parent = header,
 	})
-	Create("TextLabel", {
+	local subtitleLabel = Create("TextLabel", {
 		Name = "Subtitle",
-		Size = UDim2.new(1, -88, 0, 14),
-		Position = UDim2.new(0, 0, 0, 30),
+		Size = UDim2.new(1, -(88 + textOffset), 0, 13),
+		Position = UDim2.new(0, textOffset, 0, 28),
 		BackgroundTransparency = 1,
 		Text = description ~= "" and description or "Settings controls",
 		Font = FONT_REG,
-		TextSize = 11,
+		TextSize = 10,
 		TextColor3 = Color3.fromRGB(145, 139, 170),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 142,
 		Parent = header,
 	})
-
 	-- ElementsClip (mirrors Page:Section elementsClip)
 	local elementsClip = Create("Frame", {
 		Name = "ElementsClip",
-		Size = UDim2.new(1, -36, 0, 0),
-		Position = UDim2.new(0, 18, 0, 52),
+		Size = UDim2.new(1, -32, 0, 0),
+		Position = UDim2.new(0, 16, 0, 48),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -2339,12 +2441,15 @@ function Window:UserSettingsSection(args)
 		ZIndex = 141,
 		Parent = elementsClip,
 	})
-	local elementsLayout = ListLayout(elementsList, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, 8)
+	local elementsLayout = ListLayout(elementsList, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, 7)
 
 	local section = setmetatable({
 		Window = self,
 		Container = container,
 		Header = header,
+		TitleLabel = titleLabel,
+		SubtitleLabel = subtitleLabel,
+		SectionIcon = sectionIcon,
 		ElementsClip = elementsClip,
 		ElementsList = elementsList,
 		ElementsLayout = elementsLayout,
