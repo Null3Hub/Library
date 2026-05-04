@@ -336,17 +336,22 @@ local function ResolveUserSettingsArgs(first, second, defaultTitle)
 end
 
 function UserSettingsSection:_Refresh()
-	if self.ElementsLayout and self.ElementsList then
-		local height = self.ElementsLayout.AbsoluteContentSize.Y
-		self.ElementsList.Size = UDim2.new(1, 0, 0, height)
-		self.Container.Size = UDim2.new(1, 0, 0, math.max(84, 74 + height))
-	end
+    if self.ElementsLayout and self.ElementsList then
+        local height = self.ElementsLayout.AbsoluteContentSize.Y
+        self.ElementsList.Size = UDim2.new(1, 0, 0, height)
+        self.Container.Size = UDim2.new(1, 0, 0, math.max(84, 74 + height))
+    end
 
-	local window = self.Window
-	if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
-		local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
-		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 130)
-	end
+    local window = self.Window
+    if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
+        local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
+        local bodyPad = window.UserSettingsBody:FindFirstChildOfClass("UIPadding")
+        local padY = 0
+        if bodyPad then
+            padY = bodyPad.PaddingTop.Offset + bodyPad.PaddingBottom.Offset
+        end
+        window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + padY + 24)
+    end
 end
 
 function UserSettingsSection:_BaseElement(name, height)
@@ -2178,13 +2183,13 @@ function Window:UserSettingsSection(args)
 		Parent = container,
 	})
 	local elements = Create("Frame", {
-		Name = "Elements",
-		Size = UDim2.new(1, -24, 0, 0),
-		Position = UDim2.new(0, 12, 0, 66),
-		BackgroundTransparency = 1,
-		ZIndex = 144,
-		Parent = container,
-	})
+    Name = "Elements",
+    Size = UDim2.new(1, -22, 0, 0),
+    Position = UDim2.new(0, 9, 0, 66),
+    BackgroundTransparency = 1,
+    ZIndex = 144,
+    Parent = container,
+})
 	local layout = ListLayout(elements, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 6)
 
 	local section = setmetatable({
@@ -2806,7 +2811,7 @@ function Library.new(config)
 		Parent = userSettings,
 	})
 	local userSettingsBodyLayout = ListLayout(userSettingsBody, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 8)
-	Padding(userSettingsBody, 6, 4, 18, 4)
+	Padding(userSettingsBody, 6, 3, 18, 3)
 
 	-- Hitbox only over the avatar/icon side, not the whole user text area.
 	local userSettingsHitbox = Create("TextButton", {
