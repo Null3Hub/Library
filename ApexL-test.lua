@@ -339,13 +339,13 @@ function UserSettingsSection:_Refresh()
 	if self.ElementsLayout and self.ElementsList then
 		local height = self.ElementsLayout.AbsoluteContentSize.Y
 		self.ElementsList.Size = UDim2.new(1, 0, 0, height)
-		self.Container.Size = UDim2.new(1, 0, 0, math.max(76, 58 + height))
+		self.Container.Size = UDim2.new(1, 0, 0, math.max(84, 74 + height))
 	end
 
 	local window = self.Window
 	if window and window.UserSettingsBody and window.UserSettingsBodyLayout then
 		local bodyHeight = window.UserSettingsBodyLayout.AbsoluteContentSize.Y
-		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 8)
+		window.UserSettingsBody.CanvasSize = UDim2.new(0, 0, 0, bodyHeight + 14)
 	end
 end
 
@@ -361,7 +361,7 @@ function UserSettingsSection:_BaseElement(name, height)
 		Parent = self.ElementsList,
 	})
 	Corner(8, element)
-	Stroke(element, THEME.BORDER, 1).Transparency = 0.48
+	Stroke(element, THEME.BORDER, 1).Transparency = 0.30
 	return element
 end
 
@@ -2128,9 +2128,9 @@ function Window:UserSettingsSection(args)
 
 	local container = Create("Frame", {
 		Name = "UserSettingsSection_" .. name,
-		Size = UDim2.new(1, -2, 0, 76),
+		Size = UDim2.new(1, 0, 0, 84),
 		BackgroundColor3 = args.BackgroundColor or THEME.BG_BUTTON,
-		BackgroundTransparency = args.BackgroundTransparency ~= nil and args.BackgroundTransparency or 0.03,
+		BackgroundTransparency = args.BackgroundTransparency ~= nil and args.BackgroundTransparency or 0.02,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 142,
@@ -2138,12 +2138,12 @@ function Window:UserSettingsSection(args)
 	})
 	Corner(9, container)
 	local stroke = Stroke(container, args.StrokeColor or THEME.BORDER, 1)
-	stroke.Transparency = args.StrokeTransparency ~= nil and args.StrokeTransparency or 0.32
+	stroke.Transparency = args.StrokeTransparency ~= nil and args.StrokeTransparency or 0.18
 
 	local accent = Create("Frame", {
 		Name = "SectionAccent",
 		Size = UDim2.new(0, 3, 0, 32),
-		Position = UDim2.new(0, 9, 0, 11),
+		Position = UDim2.new(0, 11, 0, 14),
 		BackgroundColor3 = args.AccentColor or THEME.ACCENT_BLUE,
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
@@ -2154,7 +2154,7 @@ function Window:UserSettingsSection(args)
 	Create("TextLabel", {
 		Name = "Title",
 		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 21, 0, 10),
+		Position = UDim2.new(0, 24, 0, 13),
 		BackgroundTransparency = 1,
 		Text = name,
 		TextColor3 = THEME.TEXT_PRIMARY,
@@ -2167,7 +2167,7 @@ function Window:UserSettingsSection(args)
 	Create("TextLabel", {
 		Name = "Sub",
 		Size = UDim2.new(1, -30, 0, 18),
-		Position = UDim2.new(0, 21, 0, 30),
+		Position = UDim2.new(0, 24, 0, 34),
 		BackgroundTransparency = 1,
 		Text = description,
 		TextColor3 = THEME.TEXT_MUTED,
@@ -2179,8 +2179,8 @@ function Window:UserSettingsSection(args)
 	})
 	local elements = Create("Frame", {
 		Name = "Elements",
-		Size = UDim2.new(1, -18, 0, 0),
-		Position = UDim2.new(0, 9, 0, 58),
+		Size = UDim2.new(1, -24, 0, 0),
+		Position = UDim2.new(0, 12, 0, 66),
 		BackgroundTransparency = 1,
 		ZIndex = 144,
 		Parent = container,
@@ -2662,11 +2662,11 @@ function Library.new(config)
 	-- Syde-inspired profile/settings popup. Parent is the main window so
 	-- it follows the current Apex palette and ZIndex stack.
 	-- ============================================================
-	local userSettingsBasePosition = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 8)
+	local userSettingsBasePosition = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 10)
 	local userSettings = Create("Frame", {
 		Name = "UserSettings",
 		AnchorPoint = Vector2.new(1, 0),
-		Size = UDim2.new(0, 286, 0, 226),
+		Size = UDim2.new(0, 318, 0, 268),
 		Position = userSettingsBasePosition,
 		BackgroundColor3 = THEME.BG_CARD,
 		BackgroundTransparency = 0.5,
@@ -2706,10 +2706,10 @@ function Library.new(config)
 	})
 
 	Create("UIPadding", {
-		PaddingTop = UDim.new(0, 13),
-		PaddingBottom = UDim.new(0, 13),
-		PaddingLeft = UDim.new(0, 13),
-		PaddingRight = UDim.new(0, 13),
+		PaddingTop = UDim.new(0, 14),
+		PaddingBottom = UDim.new(0, 14),
+		PaddingLeft = UDim.new(0, 14),
+		PaddingRight = UDim.new(0, 14),
 		Parent = userSettings,
 	})
 
@@ -2782,7 +2782,7 @@ function Library.new(config)
 	Create("Frame", {
 		Name = "TopDivider",
 		Size = UDim2.new(1, 0, 0, 1),
-		Position = UDim2.new(0, 0, 0, 63),
+		Position = UDim2.new(0, 0, 0, 68),
 		BackgroundColor3 = THEME.BORDER,
 		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
@@ -2792,8 +2792,8 @@ function Library.new(config)
 
 	local userSettingsBody = Create("ScrollingFrame", {
 		Name = "UserSettingsBody",
-		Size = UDim2.new(1, 0, 0, 154),
-		Position = UDim2.new(0, 0, 0, 76),
+		Size = UDim2.new(1, 0, 1, -92),
+		Position = UDim2.new(0, 0, 0, 86),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 0,
@@ -2806,7 +2806,7 @@ function Library.new(config)
 		Parent = userSettings,
 	})
 	local userSettingsBodyLayout = ListLayout(userSettingsBody, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top, 8)
-	Padding(userSettingsBody, 0, 1, 8, 1)
+	Padding(userSettingsBody, 8, 10, 10, 10)
 
 	-- Hitbox only over the avatar/icon side, not the whole user text area.
 	local userSettingsHitbox = Create("TextButton", {
