@@ -925,14 +925,25 @@ function Section:_BaseElement(name, height)
 	})
 	Corner(9, element)
 	local elStroke = Stroke(element, THEME.BORDER, 1)
+
+	local normalColor = THEME.BORDER
+	local hoverColor = Color3.fromRGB(87, 84, 104)
+	local normalAlpha = 0.12
+	local hoverAlpha = 0.04
+
 	element.MouseEnter:Connect(function()
-		TweenService:Create(elStroke, TW_FAST, { Color = Color3.fromRGB(87, 84, 104) }):Play()
-		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.04 }):Play()
+		if not element.Parent then return end
+		if IsForegroundInputBlocked(element) then return end
+		TweenService:Create(elStroke, TW_FAST, { Color = hoverColor }):Play()
+		TweenService:Create(element, TW_FAST, { BackgroundTransparency = hoverAlpha }):Play()
 	end)
+
 	element.MouseLeave:Connect(function()
-		TweenService:Create(elStroke, TW_FAST, { Color = THEME.BORDER }):Play()
-		TweenService:Create(element, TW_FAST, { BackgroundTransparency = 0.12 }):Play()
+		if not element.Parent then return end
+		TweenService:Create(elStroke, TW_FAST, { Color = normalColor }):Play()
+		TweenService:Create(element, TW_FAST, { BackgroundTransparency = normalAlpha }):Play()
 	end)
+
 	return element, elStroke
 end
 
@@ -1445,6 +1456,7 @@ function Section:Dropdown(configOrTitle, values, default, callback)
 		itemButtons[valueItem] = item
 
 		item.MouseEnter:Connect(function()
+			if IsForegroundInputBlocked(item) then return end
 			local active = multi and selected[valueItem] or ((not multi) and valueItem == selectedValue)
 			if not active then
 				TweenService:Create(item, TW_FAST, {
@@ -3018,26 +3030,6 @@ function Library.new(config)
 	-- ============================================================
 	local userSettingsBasePosition = UDim2.new(1, -18, 0, NEW_TOPBAR_H + TOPBAR_H + 10)
 
-	-- Foreground input blocker.
-	-- Roblox hit-testing can still pass through visually higher transparent frames
-	-- unless a real Active GuiObject sits above the background content.
-	-- This frame stays behind UserSettings, but above the window content, so
-	-- page/section hover strokes cannot trigger while the popup is open.
-	local userSettingsInputBlocker = Create("TextButton", {
-		Name = "UserSettingsInputBlocker",
-		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromScale(0, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "",
-		AutoButtonColor = false,
-		Visible = false,
-		Active = true,
-		Selectable = false,
-		ZIndex = 130,
-		Parent = root,
-	})
-	userSettingsInputBlocker:SetAttribute("ApexForegroundLayer", true)
 
 	local userSettings = Create("Frame", {
 		Name = "UserSettings",
@@ -3069,6 +3061,25 @@ function Library.new(config)
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Parent = userSettings,
 	})
+
+	-- Invisible input blocker behind the popup but above all main content.
+	-- When the User Settings popup is open this frame is Visible + Active,
+	-- absorbing every click/hover so nothing underneath can react.
+	local userSettingsInputBlocker = Create("TextButton", {
+		Name = "UserSettingsInputBlocker",
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		Active = false,
+		Visible = false,
+		Selectable = false,
+		ZIndex = 130,
+		Parent = root,
+	})
+	userSettingsInputBlocker:SetAttribute("ApexForegroundLayer", true)
 
 	Create("UIGradient", {
 		Rotation = 270,
