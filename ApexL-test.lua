@@ -672,14 +672,19 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 	local selected = config.Default or listValues[1] or "None"
 	local opened = false
 	local setOpen
+	local baseH = 34
+	local itemH = 24
+	local itemGap = 4
+	local menuPad = 6
 
-	local element = self:_BaseElement("SettingsDropdown", 34)
+	local element = self:_BaseElement("SettingsDropdown", baseH)
 	element.ClipsDescendants = true
+	element.ZIndex = 142
 	self:_Title(element, config.Title or "Dropdown", config.Description)
 
 	local valueLabel = Create("TextLabel", {
-		Size = UDim2.new(0, 118, 0, 20),
-		Position = UDim2.new(1, -154, 0, 7),
+		Size = UDim2.new(0, 116, 0, 20),
+		Position = UDim2.new(1, -150, 0, 7),
 		BackgroundTransparency = 1,
 		Text = tostring(selected),
 		Font = FONT_REG,
@@ -687,62 +692,81 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 		TextColor3 = Color3.fromRGB(178, 170, 210),
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 143,
+		ZIndex = 146,
 		Parent = element,
 	})
+
 	local arrow = Create("ImageLabel", {
 		Name = "Chevron",
 		Size = UDim2.new(0, 16, 0, 16),
-		Position = UDim2.new(1, -30, 0.5, -8),
+		Position = UDim2.new(1, -28, 0.5, -8),
 		BackgroundTransparency = 1,
 		Image = ResolveIcon("solar:alt-arrow-up-linear"),
 		ImageColor3 = Color3.fromRGB(178, 170, 210),
 		ImageTransparency = 0.08,
 		Rotation = 180,
 		ScaleType = Enum.ScaleType.Fit,
-		ZIndex = 143,
+		ZIndex = 146,
 		Parent = element,
 	})
 
 	local menu = Create("Frame", {
 		Name = "Menu",
 		Size = UDim2.new(1, -8, 0, 0),
-		Position = UDim2.new(0, 4, 0, 42),
+		Position = UDim2.new(0, 4, 0, baseH + 8),
 		BackgroundColor3 = THEME.BG_SEARCH,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		ZIndex = 144,
+		ZIndex = 147,
 		Parent = element,
 	})
 	Corner(CORNER_MD, menu)
+
 	local menuStroke = Stroke(menu, THEME.BORDER, 1)
 	menuStroke.Transparency = 1
 	Create("UIGradient", {
 		Rotation = 90,
 		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(50, 50, 56)),
-			ColorSequenceKeypoint.new(0.25, Color3.fromRGB(120, 120, 132)),
-			ColorSequenceKeypoint.new(0.50, Color3.fromRGB(155, 155, 168)),
-			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(120, 120, 132)),
-			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(50, 50, 56)),
+			ColorSequenceKeypoint.new(0.00, THEME.BORDER),
+			ColorSequenceKeypoint.new(0.50, Color3.fromRGB(87, 84, 104)),
+			ColorSequenceKeypoint.new(1.00, THEME.BORDER),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.00, 1.00),
+			NumberSequenceKeypoint.new(0.18, 0.34),
+			NumberSequenceKeypoint.new(0.50, 0.08),
+			NumberSequenceKeypoint.new(0.82, 0.34),
+			NumberSequenceKeypoint.new(1.00, 1.00),
 		}),
 		Parent = menuStroke,
 	})
-	Padding(menu, 6, 6, 6, 6)
-	ListLayout(menu, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, 4)
 
-	local itemButtons = {}
+	Padding(menu, menuPad, menuPad, menuPad, menuPad)
+	local menuLayout = ListLayout(menu, Enum.FillDirection.Vertical, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top, itemGap)
+
+	local function calcMenuHeight()
+		local count = math.min(#listValues, 4)
+		if count <= 0 then
+			return menuPad * 2 + itemH
+		end
+		return (menuPad * 2) + (count * itemH) + (math.max(0, count - 1) * itemGap)
+	end
 
 	setOpen = function(state)
 		if opened == state then return end
 		opened = state
-		local h = opened and math.min(#listValues, 4) * 28 or 0
+		local menuH = opened and calcMenuHeight() or 0
+		local totalH = baseH + (opened and (menuH + 14) or 0)
+
+		element.ZIndex = opened and 160 or 142
+		menu.ZIndex = opened and 161 or 147
+
 		TweenService:Create(element, TW_DROPDOWN, {
-			Size = UDim2.new(1, 0, 0, 34 + h + (opened and 8 or 0)),
+			Size = UDim2.new(1, 0, 0, totalH),
 		}):Play()
 		TweenService:Create(menu, TW_DROPDOWN, {
-			Size = UDim2.new(1, -8, 0, h),
+			Size = UDim2.new(1, -8, 0, menuH),
 			BackgroundTransparency = opened and 0 or 1,
 		}):Play()
 		TweenService:Create(menuStroke, TW_FAST, { Transparency = opened and 0 or 1 }):Play()
@@ -751,13 +775,19 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 			ImageColor3 = opened and Color3.fromRGB(236, 232, 255) or Color3.fromRGB(178, 170, 210),
 			ImageTransparency = opened and 0 or 0.08,
 		}):Play()
-		task.delay(0.19, function() self:_UpdateSize() end)
+
+		task.delay(0.03, function()
+			if self and self._UpdateSize then self:_UpdateSize() end
+		end)
+		task.delay(0.24, function()
+			if self and self._UpdateSize then self:_UpdateSize() end
+		end)
 	end
 
 	for _, valueItem in ipairs(listValues) do
 		local item = Create("TextButton", {
 			Name = "Item",
-			Size = UDim2.new(1, 0, 0, 24),
+			Size = UDim2.new(1, 0, 0, itemH),
 			BackgroundColor3 = THEME.BG_BUTTON,
 			BackgroundTransparency = 0.03,
 			BorderSizePixel = 0,
@@ -766,12 +796,20 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 			Font = FONT_REG,
 			TextSize = 11,
 			AutoButtonColor = false,
-			ZIndex = 145,
+			ZIndex = 162,
 			Parent = menu,
 		})
 		Corner(7, item)
-		HoverColor(item, THEME.BG_BUTTON, THEME.BG_HOVER)
-		itemButtons[valueItem] = item
+		local itemStroke = Stroke(item, THEME.BORDER, 1)
+		itemStroke.Transparency = 0.72
+		item.MouseEnter:Connect(function()
+			TweenService:Create(item, TW_FAST, { BackgroundTransparency = 0 }):Play()
+			TweenService:Create(itemStroke, TW_FAST, { Transparency = 0.38 }):Play()
+		end)
+		item.MouseLeave:Connect(function()
+			TweenService:Create(item, TW_FAST, { BackgroundTransparency = 0.03 }):Play()
+			TweenService:Create(itemStroke, TW_FAST, { Transparency = 0.72 }):Play()
+		end)
 		item.MouseButton1Click:Connect(function()
 			selected = valueItem
 			valueLabel.Text = tostring(selected)
@@ -782,11 +820,11 @@ function UserSettingsSection:Dropdown(configOrTitle, values, default, callback)
 
 	local trigger = Create("TextButton", {
 		Name = "Trigger",
-		Size = UDim2.new(1, 0, 0, 34),
+		Size = UDim2.new(1, 0, 0, baseH),
 		BackgroundTransparency = 1,
 		Text = "",
 		AutoButtonColor = false,
-		ZIndex = 143,
+		ZIndex = 165,
 		Parent = element,
 	})
 	trigger.MouseButton1Click:Connect(function() setOpen(not opened) end)
@@ -2935,10 +2973,11 @@ function Library.new(config)
 		Size = UDim2.new(0, 318, 0, 268),
 		Position = userSettingsBasePosition,
 		BackgroundColor3 = THEME.BG_CARD,
-		BackgroundTransparency = 0.5,
+		BackgroundTransparency = 0.4,
 		BorderSizePixel = 0,
 		Visible = false,
 		ClipsDescendants = true,
+		Active = true,
 		ZIndex = 140,
 		Parent = root,
 	})
