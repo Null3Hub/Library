@@ -1917,6 +1917,31 @@ function Window:SetSidebarExpanded(expanded)
 	local targetW = isExpanded and SIDEBAR_EXPANDED or SIDEBAR_COLLAPSED
 	if isExpanded then self:_HideSidebarTooltip() end
 
+	-- Header proportions: macOS dots shrink to fit the closed sidebar, and
+	-- the sidebar chevron is just an icon button (no surrounding block).
+	if self.DotHolder then
+		TweenService:Create(self.DotHolder, TW_SIDEBAR, {
+			Size = isExpanded and UDim2.new(0, 52, 0, 18) or UDim2.new(0, 34, 0, 10),
+			Position = isExpanded and UDim2.new(0, 30, 0, 18) or UDim2.new(0.5, -17, 0, 26),
+		}):Play()
+	end
+	if self.SidebarMacDots then
+		for _, dot in ipairs(self.SidebarMacDots) do
+			if dot then
+				TweenService:Create(dot, TW_SIDEBAR, {
+					Size = isExpanded and UDim2.new(0, 12, 0, 12) or UDim2.new(0, 7, 0, 7),
+				}):Play()
+			end
+		end
+	end
+	if self.SidebarToggle then
+		self.SidebarToggle.BackgroundTransparency = 1
+		TweenService:Create(self.SidebarToggle, TW_SIDEBAR, {
+			Size = UDim2.new(0, 28, 0, 28),
+			Position = isExpanded and UDim2.new(1, -44, 0, 50) or UDim2.new(0.5, -14, 0, 58),
+		}):Play()
+	end
+
 	-- Animate the sidebar toggle icon swap.
 	-- Expanded  -> points left  (collapse action)
 	-- Closed    -> points right (expand action)
@@ -1963,7 +1988,7 @@ function Window:SetSidebarExpanded(expanded)
 	local closedLogoSize = self.SidebarLogoClosedSize or math.max(expandedLogoSize, 38)
 	TweenService:Create(self.LogoBox, TW_SIDEBAR, {
 		Size = isExpanded and UDim2.new(0, expandedLogoSize, 0, expandedLogoSize) or UDim2.new(0, closedLogoSize, 0, closedLogoSize),
-		Position = isExpanded and UDim2.new(0, 30, 0, 44) or UDim2.new(0.5, -closedLogoSize / 2, 0, 84),
+		Position = isExpanded and UDim2.new(0, 30, 0, 44) or UDim2.new(0.5, -closedLogoSize / 2, 0, 92),
 	}):Play()
 	TweenService:Create(self.SidebarSearch, TW_SIDEBAR, {
 		Size = isExpanded and UDim2.new(1, -52, 0, 36) or UDim2.new(0, 36, 0, 36),
@@ -2900,7 +2925,7 @@ function Library.new(config)
 	Create("Frame", { Name = "NTBBottomLeftFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(0, 0, 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 	Create("Frame", { Name = "NTBBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_TOPBAR, BorderSizePixel = 0, ZIndex = 10, Parent = newTopBar })
 
-	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(1, -50, 0, 44), BackgroundColor3 = THEME.BG_BUTTON, BackgroundTransparency = 0.12, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
+	local sidebarToggle = Create("TextButton", { Name = "SidebarToggle", Size = UDim2.new(0, 28, 0, 28), Position = UDim2.new(1, -44, 0, 50), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 12, Parent = newTopBar })
 	local sidebarToggleIcon = Create("ImageLabel", {
 		Name = "SidebarToggleIcon",
 		Size = UDim2.new(0, 16, 0, 16),
@@ -2950,6 +2975,7 @@ function Library.new(config)
 	local closeDot = macDot("CloseButton", THEME.DOT_RED, "×")
 	local minimizeDot = macDot("MinimizeButton", THEME.DOT_YELLOW, "−")
 	local idleDot = macDot("IdleButton", THEME.DOT_GREEN, "+")
+	local sidebarMacDots = { closeDot, minimizeDot, idleDot }
 
 	local topBarRightInfo = Create("TextLabel", {
 		Name = "TopBarRightInfo",
@@ -2971,7 +2997,7 @@ function Library.new(config)
 
 	local sidebar = Create("Frame", { Name = "Sidebar", Size = UDim2.new(0, SIDEBAR_EXPANDED, 1, -NEW_TOPBAR_H), Position = UDim2.new(0, 0, 0, NEW_TOPBAR_H), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 6, Parent = root })
 	Corner(CORNER_XL, sidebar)
-	Create("Frame", { Name = "SidebarTopLeftFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
+	-- External top-left corner must remain rounded inside Window clip; no square-fix here.
 	Create("Frame", { Name = "SidebarTopRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
 	Create("Frame", { Name = "SidebarBottomRightFix", Size = UDim2.new(0, CORNER_XL + 6, 0, CORNER_XL + 6), Position = UDim2.new(1, -(CORNER_XL + 6), 1, -(CORNER_XL + 6)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = sidebar })
 	local sidebarTop = Create("Frame", { Name = "SidebarTop", Size = UDim2.new(1, 0, 0, 138), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ZIndex = 7, Parent = sidebar })
@@ -3039,7 +3065,7 @@ function Library.new(config)
 	Corner(CORNER_MD, topBar)
 	Create("Frame", { Name = "TopBarTopLeftFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
 	Create("Frame", { Name = "TopBarBottomLeftFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(0, 0, 1, -(CORNER_MD + 4)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
-	Create("Frame", { Name = "TopBarTopRightFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(1, -(CORNER_MD + 4), 0, 0), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
+	-- External top-right corner must remain rounded inside Window clip; no square-fix here.
 	Create("Frame", { Name = "TopBarBottomRightFix", Size = UDim2.new(0, CORNER_MD + 4, 0, CORNER_MD + 4), Position = UDim2.new(1, -(CORNER_MD + 4), 1, -(CORNER_MD + 4)), BackgroundColor3 = THEME.BG_SIDEBAR, BorderSizePixel = 0, ZIndex = 7, Parent = topBar })
 
 	local topLeft = Create("Frame", { Name = "TopLeft", Size = UDim2.new(0.45, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 8, Parent = topBar })
@@ -3299,6 +3325,8 @@ function Library.new(config)
 		SidebarTop = sidebarTop,
 		SidebarToggle = sidebarToggle,
 		SidebarToggleIcon = sidebarToggleIcon,
+		DotHolder = dotHolder,
+		SidebarMacDots = sidebarMacDots,
 		CloseButton = closeDot,
 		MinimizeButton = minimizeDot,
 		IdleButton = idleDot,
@@ -3340,7 +3368,7 @@ function Library.new(config)
 		AppNameLabel = appNameLabel,
 		AppSubtitleLabel = appSubtitleLabel,
 		SidebarNavStartY = 150,
-		SidebarNavStartYClosed = 192,
+		SidebarNavStartYClosed = 184,
 		LogoBox = logoBox,
 		SidebarLogoExpandedSize = sidebarLogoSize,
 		SidebarLogoClosedSize = sidebarLogoClosedSize,
