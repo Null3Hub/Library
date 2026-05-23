@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published, prereleased]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-release:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.release.tag_name == 'Apex') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rokit
+        shell: bash
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+
+      - name: Trust Roblox Tools
+        run: rokit trust rojo-rbx/rojo Kampfkarren/selene
+
+      - name: Install Roblox Tools
+        run: rokit install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Release Assets
+        run: npm run build
+
+      - name: Verify Release Assets
+        shell: bash
+        run: |
+          test -f dist/ApexLibrary.rbxm
+          test -f dist/ApexLibrary.lua
+
+      - name: Ensure Apex Release Exists
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release view Apex >/dev/null 2>&1 || gh release create Apex --title Apex --target "$GITHUB_SHA" --notes "Automated Apex Library release"
+
+      - name: Upload Release Assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload Apex dist/ApexLibrary.rbxm dist/ApexLibrary.lua --clobber

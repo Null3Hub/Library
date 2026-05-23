@@ -1,0 +1,31 @@
+# Build artifacts
+/dist/
+sourcemap.json
+*.rbxm
+*.rbxmx
+*.rbxl
+*.rbxlx
+
+# Local toolchain
+/tools/
+
+# Node/package manager state
+/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Reference / third-party source not shipped with Apex
+Luna.lua
+
+# Local runtime configs created by executor filesystem APIs
+ApexConfigs/
+ApexExample/
+Luna/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

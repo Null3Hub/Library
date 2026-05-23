@@ -1,0 +1,20 @@
+{
+  "name": "apex-library",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Apex UI Library for Roblox",
+  "scripts": {
+    "build:rbxm": "node build/rojo-build.js",
+    "build:lua": "node build/bundle.js",
+    "build": "npm run build:rbxm && npm run build:lua",
+    "sourcemap": "node build/rojo-build.js sourcemap",
+    "lint": "node build/selene-lint.js"
+  },
+  "keywords": [
+    "roblox",
+    "luau",
+    "ui-library",
+    "rojo"
+  ],
+  "license": "UNLICENSED"
+}
